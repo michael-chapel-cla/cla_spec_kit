@@ -1,0 +1,35 @@
+services:
+  app:
+    build:
+      context: .
+      target: base
+      args:
+        - NODE_ENV=development
+        - NPM_TOKEN=${NPM_TOKEN:-}
+
+    ports:
+      - 3000:3000
+
+    volumes:
+      # application
+      - ./src:/opt/cla/src
+      - ./public:/opt/cla/public
+      
+      # configuration files
+      - ./vite.config.ts:/opt/cla/vite.config.ts
+      - ./eslint.config.js:/opt/cla/eslint.config.js
+      - ./package.json:/opt/cla/package.json
+      - ./package-lock.json:/opt/cla/package-lock.json
+      - ./tsconfig.json:/opt/cla/tsconfig.json
+      - ./tsconfig.app.json:/opt/cla/tsconfig.app.json
+      - ./tsconfig.node.json:/opt/cla/tsconfig.node.json
+      - ./setupTests.ts:/opt/cla/setupTests.ts
+      
+      # testing directories
+      - ./test:/opt/cla/test
+      - ./.storybook:/opt/cla/.storybook
+
+    environment:
+      - NODE_ENV=development
+      - PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+      - TEST_TYPE=unit

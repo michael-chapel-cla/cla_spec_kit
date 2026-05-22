@@ -1,0 +1,22 @@
+{
+  "FRAMEWORK_UI_AUTH": {
+    "enabled": true
+  },
+  "FRAMEWORK_UI_AUTH_CACHE": {
+    "cacheLocation": "sessionStorage",
+    "storeAuthStateInCookie": false
+  },
+  "FRAMEWORK_UI_AUTH_ENTRA": {
+    "clientId": "",
+    "authority": "",
+    "redirectUri": "http://localhost:3000/auth/callback"
+  },
+  "FRAMEWORK_UI_AUTH_SCOPES": ["User.Read"],
+  "FRAMEWORK_UI_NAME": "[App Title Placeholder]",
+  "FRAMEWORK_UI_NAVBAR": [
+    {
+      "label": "Home",
+      "path": "/"
+    }
+  ]
+}

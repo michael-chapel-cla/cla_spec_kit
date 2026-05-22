@@ -1,0 +1,84 @@
+app:
+  name: <app-name> # Microservice name
+  version: 1.0.0 # Application version
+
+image:
+  registry: cladevops.azurecr.io # Container registry
+  repository: helm/<app-name> # Image repository
+  tag: latest # Image tag
+
+container:
+  port: 8080 # Application port — replace with your app's port
+  # startupProbe: {...}   # Health checks
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 60
+    timeoutSeconds: 30
+    failureThreshold: 10
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+  name: <app-name>
+
+ingress:
+  enabled: false # Default: Disabled
+
+istio:
+  enabled: true
+  hosts: ["*"]
+  gateways: ["<app-name>-ingress-gateway"]
+  pathPrefix: "/<app-path>"
+  # Traffic management
+  timeout: 30s
+  gateway:
+    enabled: false
+  authorizationPolicy:
+    enabled: true
+    name: allow-cross-ns
+    namespace: <namespace>   # optional: override policy namespace; defaults to release namespace
+    allowedServiceAccounts:
+      - namespace: <allowed-namespace>
+        name: <allowed-service-account>
+
+serviceAccount:
+  create: true # Default: Create service account
+  annotations: {}
+  name: "<app-name>"
+
+configMap:
+  enabled: false
+
+secret:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
+
+networkPolicy:
+  enabled: false
+
+healthcheck:
+  enabled: false
+
+monitoring:
+  serviceMonitor:
+    enabled: false
+
+volumeMounts: []
+volumes: []
+
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}

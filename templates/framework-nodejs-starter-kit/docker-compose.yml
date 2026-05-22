@@ -1,0 +1,28 @@
+services:
+  app:
+    build:
+      context: .
+      target: development
+      args:
+        - NODE_ENV=development
+        - NPM_TOKEN=${NPM_TOKEN}
+    command: ["npm", "run", "dev:watch"]
+    ports:
+      - "3000:3000"
+      - "9229:9229"  # Debug port
+    volumes:
+      # application
+      - ./src:/opt/cla/src
+
+      # testing
+      - ./eslint.config.mts:/opt/cla/eslint.config.mts
+      - ./vite.config.ts:/opt/cla/vite.config.ts
+      - ./test:/opt/cla/test
+      
+      # Azure CLI credentials for CLA development environment
+      - ~/.azure:/tmp/host-azure:ro
+    environment:
+      - HOST_AZURE_CONFIG_DIR=/tmp/host-azure
+    stdin_open: true
+    tty: true
+

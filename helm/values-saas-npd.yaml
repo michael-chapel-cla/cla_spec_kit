@@ -1,0 +1,26 @@
+app: # Application version
+  environment: 'saas-npd' # Environment (dev/qa/stage/prod)
+
+replicaCount: 1
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+resources:
+  limits:
+    cpu: 150m
+    memory: 350Mi
+  requests:
+    cpu: 100m
+    memory: 300Mi
+
+istio:
+  hosts: ["<app-hostname>.npd-saas.claitdev.com"]
+
+serviceAccount:
+  azureWorkloadIdentityClientId: '<azure-workload-identity-client-id>' #npd-<env>-<app>-uami-001
+

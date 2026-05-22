@@ -1,0 +1,30 @@
+app: # Application version
+  environment: 'prd' # Environment (dev/qa/uat/stage/prod)
+
+replicaCount: 3
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+resources:
+  limits:
+    cpu: 150m
+    memory: 350Mi
+  requests:
+    cpu: 100m
+    memory: 300Mi
+
+istio:
+  hosts: ["<app-hostname>.claconnect.com"]
+
+# monitoring:
+#   serviceMonitor:
+#     enabled: true
+
+serviceAccount:
+  azureWorkloadIdentityClientId: '<azure-workload-identity-client-id>' #prd-<env>-<app>-uami-001
+
