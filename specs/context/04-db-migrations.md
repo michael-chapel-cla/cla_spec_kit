@@ -21,6 +21,11 @@ Load this file for `/db-audit`. Only applies if `db/migrations/` or `flyway.conf
 | D11 | Stored procedure not using repeatable migration | LOW | -3 |
 | D12 | Version numbers out of order or gaps | LOW | -3 |
 | D13 | Cross-database reference without existence check | MEDIUM | -7 |
+| D14 | `'NULL'` string literal instead of SQL NULL keyword | MEDIUM | -7 |
+| D15 | Implicit boolean (`true`/`false`) in BIT column — use `1`/`0` | LOW | -3 |
+| D16 | Additive DDL without `IF NOT EXISTS` guard | LOW | -3 |
+| D17 | Multiple unrelated DDL operations in one migration | LOW | -3 |
+| D18 | `trustServerCertificate=true` in non-dev environment | HIGH | -15 |
 
 ---
 
@@ -42,19 +47,19 @@ Key prefixes:
 ## D01 — Naming Convention Violation
 **Severity:** MEDIUM | **Penalty:** -7 per file
 
-**Required format:** `V{version}__{description}.sql` (double underscore separates version from description)
+**Required format:** `V{major}.{minor}.{patch}__{description}.sql` using semantic versioning (double underscore separates version from description)
 
 ```
-V1__initial_schema.sql          ✅
-V2__create_users_table.sql      ✅
-V3__add_email_to_users.sql      ✅
-R__vw_user_summary.sql          ✅  (repeatable)
-R__usp_get_orders.sql           ✅  (repeatable stored proc)
+V1.0.0__create_schema.sql           ✅  (semantic version — preferred)
+V1.0.1__create_users_table.sql      ✅
+V1.0.2__add_email_to_users.sql      ✅
+R__vw_user_summary.sql              ✅  (repeatable)
+R__usp_get_orders.sql               ✅  (repeatable stored proc)
 
-V1_initial_schema.sql           ❌  (single underscore)
-v1__initial_schema.sql          ❌  (lowercase v)
-2__create_users.sql             ❌  (missing V prefix)
-V1__Create Users Table.sql      ❌  (spaces in filename)
+V1_initial_schema.sql               ❌  (single underscore)
+v1__initial_schema.sql              ❌  (lowercase v)
+2__create_users.sql                 ❌  (missing V prefix)
+V1__Create Users Table.sql          ❌  (spaces in filename)
 ```
 
 **Detect:**
@@ -98,8 +103,10 @@ git log --diff-filter=M --name-only --pretty=format: -- 'db/migrations/V*.sql' |
 - Do NOT edit the original file
 - Create a NEW migration with the next version number that corrects it
 
-❌ Editing `V5__add_column.sql` to fix a typo after it was applied
-✅ Creating `V6__fix_column_default.sql` to correct the error
+❌ Editing `V1.0.5__add_column.sql` to fix a typo after it was applied
+✅ Creating `V1.0.6__fix_column_default.sql` to correct the error
+
+**Local dev only — `flyway repair`:** If you edited a migration that was only applied locally (not on any shared or production DB), you can run `docker compose --env-file backend/.env run --rm flyway repair` to update the stored checksum. Never use `flyway repair` on shared, QA, or production databases — the correct fix there is always to revert the file to its original content.
 
 ---
 
@@ -263,6 +270,13 @@ git log --all --full-history -- "flyway.conf" | head -5
 ❌ `flyway.conf` appears in `git ls-files` output
 ✅ `flyway.conf` in `.gitignore`, only `flyway.conf.example` tracked
 
+**CI/CD credential handling:** Prefer Azure Managed Identity (`Authentication=ActiveDirectoryDefault`) — no password stored in the pipeline at all. If a password is required, store it as an encrypted pipeline secret (never a plain variable). Flag any pipeline reference to `DB_PASSWORD` that does not use `$(secrets.DB_PASSWORD)` or equivalent secret syntax.
+
+```bash
+# Flag DB_PASSWORD referenced as a plain variable, not a secret
+grep -rn "DB_PASSWORD" azure-pipelines.yml .github/ 2>/dev/null | grep -v "secrets\.\|group:"
+```
+
 ---
 
 ## D10 — cleanDisabled=false in Non-Dev Config
@@ -339,6 +353,130 @@ grep -rn "[A-Za-z][A-Za-z0-9_]*\.[A-Za-z][A-Za-z0-9_]*\.[A-Za-z]" db/migrations/
 
 ---
 
+## D14 — `'NULL'` String Literal Instead of SQL NULL Keyword
+**Severity:** MEDIUM | **Penalty:** -7
+
+Using the string `'NULL'` stores four characters, not a null value. It bypasses `NOT NULL` constraints, breaks `IS NULL` checks, and corrupts data silently.
+
+**Detect:**
+```bash
+grep -rn "VALUES.*'NULL'\|= 'NULL'\|'NULL'," db/migrations/ --include="*.sql"
+```
+
+❌
+```sql
+INSERT INTO dbo.Users (Name, DeletedOn) VALUES ('Alice', 'NULL');  -- stores the string
+```
+
+✅
+```sql
+INSERT INTO dbo.Users (Name, DeletedOn) VALUES ('Alice', NULL);    -- stores a real NULL
+```
+
+---
+
+## D15 — Implicit Boolean in BIT Column (`true`/`false` instead of `1`/`0`)
+**Severity:** LOW | **Penalty:** -3
+
+MSSQL's BIT type accepts `1`/`0`. While the engine may coerce `true`/`false` in some contexts, relying on implicit conversion breaks across Flyway, JDBC drivers, and explicit comparisons.
+
+**Detect:**
+```bash
+grep -rni "\bVALUES\b.*\btrue\b\|\bVALUES\b.*\bfalse\b\|= true\b\|= false\b" db/migrations/ --include="*.sql"
+```
+
+❌
+```sql
+INSERT INTO dbo.Settings (Enabled) VALUES (true);
+```
+
+✅
+```sql
+INSERT INTO dbo.Settings (Enabled) VALUES (1);
+```
+
+---
+
+## D16 — Additive DDL Without `IF NOT EXISTS` Guard
+**Severity:** LOW | **Penalty:** -3
+
+`ALTER TABLE ... ADD COLUMN` and similar additive DDL fail if the object already exists — which happens during re-runs in development or after a partial-failure replay. Use system catalog checks to make additive migrations idempotent.
+
+**Detect:**
+```bash
+grep -rn "ALTER TABLE.*ADD \|CREATE INDEX " db/migrations/ --include="*.sql" \
+  | grep -iv "IF NOT EXISTS\|IF NOT EXISTS (SELECT"
+```
+
+❌
+```sql
+ALTER TABLE dbo.Users ADD PhoneNumber NVARCHAR(20) NULL;
+```
+
+✅
+```sql
+IF NOT EXISTS (
+  SELECT 1 FROM sys.columns
+  WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'PhoneNumber'
+)
+  ALTER TABLE dbo.Users ADD PhoneNumber NVARCHAR(20) NULL;
+```
+
+---
+
+## D17 — Multiple Unrelated DDL Operations in One Migration
+**Severity:** LOW | **Penalty:** -3
+
+Each migration should represent one logical change. Bundling unrelated DDL (e.g., creating two different tables, or altering unrelated tables) makes rollback harder and history harder to read.
+
+**Detect:**
+```bash
+# Flag files with CREATE TABLE appearing more than once, or ALTER TABLE on 3+ distinct tables
+grep -l "CREATE TABLE" db/migrations/*.sql | while read f; do
+  count=$(grep -c "CREATE TABLE" "$f")
+  [ "$count" -gt 1 ] && echo "MULTIPLE CREATE TABLE in: $f ($count tables)"
+done
+```
+
+✅ One concern per file:
+```
+V1.0.1__create_users.sql        ← creates dbo.Users only
+V1.0.2__create_roles.sql        ← creates dbo.Roles only
+V1.0.3__create_user_roles.sql   ← creates dbo.UserRoles (the join table) only
+```
+
+---
+
+## D18 — `trustServerCertificate=true` in Non-Dev Environment
+**Severity:** HIGH | **Penalty:** -15
+
+`trustServerCertificate=true` disables TLS certificate validation and is only safe for local Docker SQL Server (which uses a self-signed cert). Using it in QA, UAT, or production JDBC URLs disables an entire layer of transport security.
+
+**Detect:**
+```bash
+grep -rn "trustServerCertificate=true" azure-pipelines.yml .github/ flyway.conf.example docker-compose.yml 2>/dev/null
+# Review any non-local environment JDBC URLs for this flag
+grep -rn "trustServerCertificate=true" . --include="*.yml" --include="*.yaml" --include="*.conf" \
+  | grep -v "localhost\|127.0.0.1\|local dev\|#"
+```
+
+❌
+```yaml
+# In a QA or production pipeline
+FLYWAY_URL: "jdbc:sqlserver://qa-db.azure.net:1433;databaseName=AppDb;trustServerCertificate=true"
+```
+
+✅
+```yaml
+# Local dev (Docker SQL Server — self-signed cert acceptable)
+FLYWAY_URL: "jdbc:sqlserver://db:1433;databaseName=AppDb;encrypt=true;trustServerCertificate=true"
+
+# QA / UAT / Production (Azure SQL — use real cert)
+FLYWAY_URL: "jdbc:sqlserver://app.database.windows.net:1433;databaseName=AppDb;encrypt=true;trustServerCertificate=false;Authentication=ActiveDirectoryDefault"
+```
+
+---
+
 ## Migration Authoring Checklist
 
 Before creating a new migration:
@@ -351,7 +489,7 @@ Before creating a new migration:
 - [ ] Stored procedures/views use `R__` prefix with `CREATE OR ALTER`
 - [ ] No string concatenation in dynamic SQL — use parameters
 - [ ] `COMMIT` present for every `BEGIN TRANSACTION`
-- [ ] Tested locally with `flyway migrate` → `flyway validate`
+- [ ] Tested locally with `docker compose --env-file backend/.env run --rm flyway migrate` → `docker compose --env-file backend/.env run --rm flyway validate`
 
 ## Scoring Reference
 

@@ -1,0 +1,55 @@
+{
+  "name": "Spec Kit",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bullseye",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "enableNonRootDocker": "true",
+      "moby": "true"
+    }
+  },
+  "postCreateCommand": "echo 'Devcontainer ready. Use GitHub Copilot Chat to run /design, /plan, and /create.'",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-typescript-next",
+        "redhat.vscode-yaml",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "typescript.tsdk": "node_modules/typescript/lib",
+        "github.copilot.enable": {
+          "*": true
+        }
+      }
+    }
+  },
+  "forwardPorts": [3000, 8080, 6006],
+  "portsAttributes": {
+    "3000": {
+      "label": "Frontend (React/Vite)",
+      "onAutoForward": "notify"
+    },
+    "8080": {
+      "label": "Backend (Fastify API)",
+      "onAutoForward": "notify"
+    },
+    "6006": {
+      "label": "Storybook",
+      "onAutoForward": "silent"
+    }
+  },
+  "remoteUser": "node",
+  "mounts": [
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.azure,target=/home/node/.azure,type=bind,consistency=cached"
+  ]
+}

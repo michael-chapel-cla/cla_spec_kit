@@ -2181,6 +2181,206 @@ app.post('/secure-upload', upload.single('file'), async (req, res) => {
 
 ---
 
+## S38 — DoS via Resource Consumption
+
+**Severity:** HIGH | **CWE:** CWE-400
+
+Unbounded operations — large file uploads with no size limit, deeply nested JSON, unparameterized regex on user input, or expensive queries with no timeout — allow a single client to exhaust server resources.
+
+### Detect
+```bash
+# Check for missing body size limits in Fastify config
+grep -rn "bodyLimit\|contentLength" src/ --include="*.ts"
+
+# Detect user-controlled regex (ReDoS risk)
+grep -rn "new RegExp(req\.\|new RegExp(param\|new RegExp(query\." src/ --include="*.ts"
+```
+
+❌
+```typescript
+const regex = new RegExp(req.query.search);  // user-controlled — ReDoS vector
+const results = await db.query('SELECT * FROM Logs');  // no LIMIT, no timeout
+```
+
+✅
+```typescript
+const safeSearch = req.query.search.replace(/[^a-zA-Z0-9\s]/g, '');  // sanitize first
+const regex = /^[a-zA-Z0-9\s]+$/;
+
+// Set body size limit at Fastify level
+fastify.register(require('@fastify/multipart'), { limits: { fileSize: 10 * 1024 * 1024 } });
+```
+
+---
+
+## S39 — Mass Assignment / Object Prototype Pollution
+
+**Severity:** HIGH | **CWE:** CWE-915
+
+Passing `req.body` directly to a DB insert or object spread allows attackers to set fields they should not control (e.g., `isAdmin: true`, `__proto__`). Always whitelist the fields you accept.
+
+### Detect
+```bash
+grep -rn "\.create(req\.body\|\.insert(req\.body\|\.update(req\.body\|\.save(req\.body" src/ --include="*.ts"
+grep -rn "\.\.\.(req\.body\|\.\.\.request\.body" src/ --include="*.ts"
+```
+
+❌
+```typescript
+await db.query('INSERT INTO Users ...', req.body);  // attacker controls all fields
+const user = { ...req.body };                        // includes __proto__ if attacker sends it
+```
+
+✅
+```typescript
+const { name, email } = req.body;  // explicit whitelist
+await db.executeQuery('INSERT INTO dbo.Users (Name, Email) VALUES (@name, @email)', { name, email });
+```
+
+---
+
+## S40 — Cleartext Storage of Sensitive Information
+
+**Severity:** HIGH | **CWE:** CWE-312
+
+Passwords, tokens, and secrets stored in plaintext in the database or filesystem are fully exposed if the storage layer is breached. Hash passwords with bcrypt/argon2; encrypt secrets at rest.
+
+### Detect
+```bash
+# Look for password fields stored without hashing
+grep -rn "password\|secret\|token" db/migrations/ --include="*.sql" \
+  | grep -iv "NVARCHAR\|hash\|bcrypt\|encrypted"
+
+# Look for plaintext password in application code
+grep -rn "\.password\s*=" src/ --include="*.ts" | grep -v "hash\|bcrypt\|argon"
+```
+
+❌
+```typescript
+await db.executeQuery('INSERT INTO dbo.Users (Email, Password) VALUES (@email, @password)',
+  { email, password: req.body.password });  // plaintext
+```
+
+✅
+```typescript
+import bcrypt from 'bcrypt';
+const hash = await bcrypt.hash(req.body.password, 12);
+await db.executeQuery('INSERT INTO dbo.Users (Email, PasswordHash) VALUES (@email, @hash)',
+  { email, hash });
+```
+
+---
+
+## S41 — Cleartext Transmission of Sensitive Information
+
+**Severity:** HIGH | **CWE:** CWE-319
+
+Sensitive data transmitted over HTTP (not HTTPS) or written to logs in plaintext is exposed to interception. Enforce HTTPS in all environments; never log passwords, tokens, or PII.
+
+### Detect
+```bash
+# Check for HTTP (not HTTPS) external calls
+grep -rn "http://" src/ --include="*.ts" | grep -v "localhost\|127.0.0.1\|test\|spec\|#"
+
+# Check TLS verification disabled
+grep -rn "rejectUnauthorized.*false\|strictSSL.*false" src/ --include="*.ts"
+```
+
+❌
+```typescript
+await fetch('http://internal-service/api/data');  // cleartext over HTTP
+```
+
+✅
+```typescript
+await fetch('https://internal-service/api/data');  // encrypted
+// In Helm/values: enforce HTTPS via Istio ingress
+```
+
+---
+
+## S42 — Improper Input Validation
+
+**Severity:** HIGH | **CWE:** CWE-20
+
+All user-supplied input at API boundaries must be validated for type, format, length, and allowed characters before use. Missing validation enables injection, unexpected behavior, and data corruption. Applies to path params, query params, request bodies, and headers.
+
+### Detect
+```bash
+# Routes without schema validation attached
+grep -rn "handler:" src/features/ --include="*.routes.ts" -B5 | grep -v "schema:"
+
+# Missing Zod parse on request data
+grep -rn "req\.body\|request\.body" src/ --include="*.ts" | grep -v "schema\|parse\|validate"
+```
+
+❌
+```typescript
+const { userId } = req.params;
+const user = await db.executeQuery('SELECT * FROM dbo.Users WHERE Id = @id', { id: userId });
+// userId is a raw string — no validation that it's a number
+```
+
+✅
+```typescript
+const schema = {
+  params: z.object({ userId: z.coerce.number().int().positive() }),
+  body: z.object({ name: z.string().min(1).max(200) }),
+};
+// Fastify validates automatically when schema is attached to the route
+```
+
+**ReDoS prevention** — never compile user input as a regex:
+```typescript
+❌ const re = new RegExp(req.query.keyword);              // user-controlled pattern
+✅ const safe = req.query.keyword.replace(/[^a-z0-9\s]/gi, '');  // sanitize first
+```
+
+---
+
+## S43 — Improper Authorization (RBAC Gaps)
+
+**Severity:** HIGH | **CWE:** CWE-285
+
+Every protected route must check not just that the user is authenticated (valid JWT) but that they are **authorized** for the specific action (correct scope/role). Missing scope checks allow any authenticated user to access any endpoint.
+
+### Detect
+```bash
+# Routes that check auth but not scopes
+grep -rn "authMiddleware\|preHandler.*auth" src/ --include="*.routes.ts" -A5 \
+  | grep -v "scope\|role\|authorize\|hasPermission"
+
+# Check for endpoints with no auth and no explicit public annotation
+grep -rn "handler:" src/ --include="*.routes.ts" -B10 | grep -v "preHandler\|auth\|health"
+```
+
+❌
+```typescript
+// Only checks token is valid — does not check the user has the right scope
+fastify.get('/api/v1/AdminReports', { preHandler: [authMiddleware] }, handler);
+```
+
+✅
+```typescript
+function requireScope(...scopes: string[]) {
+  return async (request: FastifyRequest, reply: FastifyReply) => {
+    const tokenScopes: string[] = request.user?.scp?.split(' ') ?? [];
+    const hasScope = scopes.every(s => tokenScopes.includes(s));
+    if (!hasScope) {
+      return reply.status(403).send({ error: 'FORBIDDEN', message: 'Insufficient scope',
+        requestId: request.id, timestamp: new Date().toISOString() });
+    }
+  };
+}
+
+fastify.get('/api/v1/AdminReports',
+  { preHandler: [authMiddleware, requireScope('reports:read')] },
+  handler
+);
+```
+
+---
+
 ## Scoring Reference for Security Audits
 
 ```

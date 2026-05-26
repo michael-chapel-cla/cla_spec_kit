@@ -1,37 +1,32 @@
-# Executive Summary — LiquidityEventOS
+# Executive Summary — ExpenseFlow
 
 ## What it is
-LiquidityEventOS is a standalone SaaS platform for founders, pre-IPO employees, and their advisors navigating high-stakes equity liquidity decisions involving options, tenders, acquisitions, IPOs, QSBS, and post-liquidity planning.
+ExpenseFlow is a SaaS platform that replaces paper receipts, email approval chains, and spreadsheet reconciliation with a structured workflow for expense submission, manager approval, and finance reporting. Employees submit expenses with receipt photos; managers approve or reject in one click; finance teams export clean data to payroll and accounting systems.
 
 ## The problem
-Liquidity events are infrequent, but when they happen the financial consequences are enormous. Decisions around exercise timing, AMT, QSBS eligibility, trust planning, gifting, diversification, and sale timing are often handled through bespoke spreadsheets and fragmented expert advice. Small mistakes can destroy millions of dollars in value.
+Most mid-size companies handle expense reimbursement through a mix of emailed receipts, PDF forms, and manual spreadsheet reconciliation. The result is delayed reimbursements, lost receipts, policy violations that go undetected until audit, and finance teams spending hours each month chasing documentation. Employees dislike the friction; managers forget to act on requests; finance cannot close the books predictably.
 
 ## Why now
-Startup wealth creation, secondary liquidity activity, and the increasing complexity of private-company equity compensation have created a strong need for more repeatable planning infrastructure. At the same time, specialist advisors serving founders need software that can operationalize complex scenarios and client workflows.
+Remote and hybrid work has increased out-of-pocket employee spending while eliminating the informal proximity that previously kept expense submission on track. Companies are also under greater scrutiny for audit-readiness and spend governance, making a structured paper trail non-optional.
 
 ## The solution
-LiquidityEventOS provides:
-- grant and company inventory management
-- event-specific scenario analysis
-- exercise/tender/sale comparison
-- checklist-driven planning workflows
-- collaboration across advisor, CPA, and external specialists
-- client-ready planning memos and risk summaries
-
-## Why it wins
-The product focuses on one of the highest-stakes planning moments in wealth creation. It turns niche expert knowledge into repeatable software-enabled workflows, creating high-value outcomes and a powerful authority position in a premium market segment.
+ExpenseFlow provides:
+- Mobile and web expense submission with receipt photo capture
+- Configurable approval workflows — single manager, multi-step, auto-approve under threshold
+- Policy enforcement at submission time: category limits, flagged exceptions, daily caps
+- Finance dashboard with batch export to CSV and accounting integration stubs
+- Audit trail for every expense from submission through reimbursement
 
 ## Target market
-- startup-focused CPAs
-- founder wealth advisors
-- pre-liquidity planning boutiques
-- founders and early employees with meaningful equity wealth
+- Companies with 50–500 employees
+- Operations, finance, and HR buyers
+- Industries with regular employee field spend: professional services, construction, healthcare, logistics
 
 ## Commercial case
-Although narrower than broad tax or accounting software, the category supports premium pricing because the value at risk is so large. The product is well suited to high-value advisory channels and expert-led go-to-market models.
+Per-active-user SaaS pricing. Low sales friction — a finance director or HR manager can trial and deploy without IT involvement. Expansion revenue as headcount grows. High retention because switching costs are meaningful once workflows and approval chains are established.
 
-## Why private equity or strategic buyers should care
-LiquidityEventOS offers a differentiated niche software asset in a premium market with strong thought-leadership potential, attractive pricing power, and possible strategic adjacency to equity management, tax planning, and private wealth platforms.
+## Why it wins
+ExpenseFlow is simpler than SAP Concur and more structured than Expensify. It targets the underserved mid-market gap between consumer-grade expense tools and costly enterprise platforms — companies that have outgrown email-and-spreadsheet but do not need a full travel-and-expense team to operate the software.
 
 ## Bottom line
-LiquidityEventOS is a narrower but premium software opportunity built around one of the most consequential moments in personal financial planning.
+A focused, deployable-in-a-day expense management platform for the mid-market gap between consumer tools and enterprise complexity.

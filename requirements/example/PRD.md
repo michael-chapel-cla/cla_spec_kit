@@ -1,65 +1,63 @@
-# PRD — LiquidityEventOS
+# PRD — ExpenseFlow
 
 ## Product
-LiquidityEventOS
+ExpenseFlow
 
 ## One-line pitch
-Planning software for founders and pre-IPO employees navigating QSBS, options, tenders, acquisitions, and IPO-related tax decisions.
+Expense submission, approval, and reimbursement for mid-size companies — replacing email chains and spreadsheets with a structured workflow.
 
 ## Problem
-Liquidity events create huge tax and planning consequences, but advice is fragmented and often late. Founders and employees must navigate:
-- QSBS qualification and stacking
-- 83(b) and early exercise implications
-- ISO/NSO/RSU tax impacts
-- AMT exposure
-- tender vs hold decisions
-- charitable and trust planning
-- concentration and post-liquidity diversification
+Mid-size companies manage employee expense reimbursement through ad-hoc combinations of emailed receipts, PDF forms, and manual spreadsheet entry. This creates:
+- Delayed reimbursements that frustrate employees
+- Policy violations that go undetected until quarterly audit
+- Finance teams spending 5–15 hours per month chasing missing documentation
+- No visibility into spend by department, category, or period until month-end close
 
 ## ICP
-- founders and early employees with meaningful equity upside
-- startup-focused CPAs and wealth advisors
-- law/accounting/planning firms serving venture-backed clients
+- Companies with 50–500 employees
+- Finance directors, operations managers, and HR leads who own the reimbursement process
+- Industries with regular out-of-pocket employee spend: professional services, field services, healthcare, logistics
 
 ## JTBD
-- Tell me what I should do before the liquidity event, not after
-- Compare multiple paths with tax and wealth impact
-- Avoid losing millions through preventable planning mistakes
+1. Reimburse employees quickly without chasing them for receipts
+2. Enforce spend policies without manual review of every submission
+3. Close the books faster with clean, categorized expense data
+4. Give managers visibility into their team's spend without a separate report request
 
 ## Existing alternatives
-- spreadsheets
-- boutique founder CPAs
-- generic equity tools
-- advisor planning software
+- Email + spreadsheet: free but unstructured, error-prone, no audit trail
+- Expensify: consumer-grade, card-focused, limited approval workflows
+- SAP Concur / Certify: enterprise pricing and complexity, requires dedicated admin
+- Ramp / Brex: card-first, requires company credit card adoption
 
 ## Gap
-There is no widely adopted operating system that combines equity tax logic, planning workflow, and client/advisor action management into one product.
+No widely used tool serves companies that reimburse out-of-pocket expenses with configurable approval workflows, policy enforcement, and accounting export — without requiring a dedicated T&E team or enterprise pricing.
 
 ## Core features
-1. Equity inventory by grant and share class
-2. Event timeline and milestone engine
-3. QSBS / trust / gifting decision support
-4. ISO/NSO/RSU / AMT modeling
-5. Tender / acquisition / IPO scenario comparison
-6. Post-liquidity cash, tax, and diversification plan
-7. Advisor/counsel/CPA collaboration workspace
-8. Client-ready memos and checklists
+1. Expense submission with receipt photo upload (mobile and web)
+2. Configurable approval routing — single manager, multi-step, auto-approve under threshold
+3. Policy enforcement at submission: per-category limits, daily caps, required fields
+4. Expense reports grouped by employee and period
+5. Finance dashboard: pending approvals, total spend by category, export to CSV
+6. Department and cost-centre tagging
+7. Audit trail: full history of every submission, edit, approval, and rejection
+8. Email and in-app notifications for pending approvals and reimbursement status
 
 ## AI opportunities
-- document and scenario summarization
-- missing-risk detection
-- next-best-action recommendations
-- founder-facing explanation of complex rules
+- Receipt OCR: extract merchant, date, and amount automatically from a photo
+- Anomaly detection: flag submissions that deviate from a user's historical patterns
+- Policy suggestions: recommend policy adjustments based on common exception patterns
 
-## MVP
-- grant-level data entry
-- scenario engine for tender/IPO/sale
-- checklist and risk surfacing
-- planning memo generation
-- advisor collaboration workspace
+## MVP feature set
+- Expense submission with receipt photo
+- Single-level manager approval workflow
+- Basic category and amount policy rules
+- Finance export to CSV
+- Email notifications for approvals and rejections
 
 ## Success metrics
-- time-to-plan before liquidity event
-- advisor adoption in startup-focused firms
-- number of identified tax/planning opportunities per client
-- conversion of inbound founder leads to paid planning
+- Average time from submission to approval (target: under 24 hours)
+- Percentage of expenses submitted within 7 days of spend
+- Finance admin hours per month spent on expense processing (target: reduction of 50%)
+- Employee satisfaction score for reimbursement process
+- Monthly active companies after 90 days

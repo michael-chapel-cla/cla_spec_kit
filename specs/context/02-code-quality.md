@@ -25,6 +25,15 @@
 | Q16 | Missing null/undefined guard | LOW | scan / tsc |
 | Q17 | `dangerouslySetInnerHTML` without sanitization | HIGH | scan |
 | Q18 | Import of removed/deprecated package | MEDIUM | scan |
+| Q19 | Route handler has no explicit `return` (hanging response path) | MEDIUM | scan |
+| Q20 | Mutating request object (`req.x = value`) instead of `req.locals` | LOW | scan |
+| Q21 | Loose equality (`==`) instead of strict (`===`) | LOW | eslint |
+| Q22 | `forEach` used for data transformation (use `.map()`) | LOW | scan |
+| Q23 | `Promise.all()` not used for independent parallel async operations | MEDIUM | scan |
+| Q24 | Nested ternary expressions | LOW | eslint |
+| Q25 | Throwing string literal instead of `Error` object | LOW | eslint |
+| Q26 | Database connection not closed in `finally` block | MEDIUM | scan |
+| Q27 | Meaningless variable name (single letter in non-loop context) | LOW | AI |
 
 ---
 
@@ -489,6 +498,14 @@ Parse JSON output. `severity: 2` = error (MEDIUM finding), `severity: 1` = warni
 - `react-hooks/exhaustive-deps` — useEffect dependency array
 - `@typescript-eslint/no-explicit-any` — no `any` type
 - `@typescript-eslint/no-floating-promises` — await all promises
+- `eqeqeq` — strict equality only (`===` / `!==`)
+- `prefer-const` — use `const` for all variables not reassigned
+- `curly` — always use braces for conditionals
+- `no-param-reassign` — don't mutate function parameters
+- `no-nested-ternary` — no nested ternary expressions
+- `no-throw-literal` — throw `Error` objects, not strings
+- `object-shorthand` — `{ name }` not `{ name: name }`
+- `prefer-arrow-callback` — use arrow functions for callbacks
 
 ---
 
@@ -550,6 +567,187 @@ done
 | `node-fetch@1` | `node-fetch@3` or native `fetch` (Node 18+) |
 | `tslint` | `eslint` + `@typescript-eslint` |
 | `@types/enzyme` | `@testing-library/react` |
+| `domain` (Node.js core) | `process.on('uncaughtException', ...)` |
+
+---
+
+## Q19 — Route Handler Has No Explicit `return`
+**Severity**: MEDIUM
+
+A Fastify route handler that calls `reply.send()` without `return` continues executing. If later code calls `reply.send()` again, Fastify throws "Reply already sent." Always `return reply.send(...)`.
+
+### Detect
+```bash
+grep -rn "reply\.send\|reply\.status" src/ --include="*.ts" -A1 \
+  | grep -v "return reply\." | grep "reply\."
+```
+
+❌
+```typescript
+handler: async (request, reply) => {
+  if (!request.user) { reply.status(401).send({ error: 'UNAUTHORIZED' }); } // missing return
+  reply.send(await service.getData());
+};
+```
+
+✅
+```typescript
+handler: async (request, reply) => {
+  if (!request.user) { return reply.status(401).send({ error: 'UNAUTHORIZED' }); }
+  return reply.send(await service.getData());
+};
+```
+
+---
+
+## Q20 — Mutating the Request Object Directly
+**Severity**: LOW
+
+Adding properties directly to `request` (`req.user = ...`) is untyped and can collide with Fastify internals. Attach custom data to `request.locals` or use a typed decorator.
+
+### Detect
+```bash
+grep -rn "request\.[a-z]\+ = \|req\.[a-z]\+ = " src/ --include="*.ts" \
+  | grep -v "request\.body\|request\.params\|request\.query\|request\.headers\|request\.log\|request\.id\|request\.user"
+```
+
+❌ `request.authenticated = true;`
+✅ `request.locals = { authenticated: true };` or use `fastify.decorateRequest`
+
+---
+
+## Q21 — Loose Equality (`==`) Instead of Strict (`===`)
+**Severity**: LOW
+
+`==` performs type coercion (`0 == false` is `true`). Always use `===` and `!==`. Enforced by `eqeqeq` ESLint rule.
+
+### Detect
+```bash
+grep -rn "[^=!<>]=[^=>]" src/ --include="*.ts" | grep -v "=>" | grep -v "^\s*//"
+# Or: npx eslint --rule '{"eqeqeq": "error"}' src/
+```
+
+---
+
+## Q22 — `forEach` for Data Transformation (Use `.map()`)
+**Severity**: LOW
+
+`forEach` returns `undefined` and requires a mutable accumulator. `.map()` is declarative, returns a new array, and composes cleanly.
+
+### Detect
+```bash
+grep -rn "\.forEach" src/ --include="*.ts" | grep -v "test\|spec"
+# Review each for whether a .map() / .filter() / .reduce() would be cleaner
+```
+
+❌ `const names = []; users.forEach(u => names.push(u.name));`
+✅ `const names = users.map(u => u.name);`
+
+---
+
+## Q23 — Independent Async Operations Not Parallelized with `Promise.all()`
+**Severity**: MEDIUM
+
+Sequential `await` on independent operations adds latency unnecessarily. Use `Promise.all()` when calls don't depend on each other.
+
+### Detect
+```bash
+# Look for multiple consecutive awaits that could be parallel
+grep -rn "await " src/ --include="*.ts" -A1 | grep -B1 "await " | head -40
+```
+
+❌
+```typescript
+const user = await getUser(id);
+const roles = await getRoles(id);  // independent — could run in parallel
+```
+
+✅
+```typescript
+const [user, roles] = await Promise.all([getUser(id), getRoles(id)]);
+```
+
+---
+
+## Q24 — Nested Ternary Expressions
+**Severity**: LOW
+
+Nested ternaries are unreadable and error-prone. Use `if/else` or a lookup object. Enforced by `no-nested-ternary` ESLint rule.
+
+### Detect
+```bash
+npx eslint --rule '{"no-nested-ternary": "error"}' src/ 2>/dev/null | grep "no-nested-ternary"
+```
+
+❌ `const label = isAdmin ? 'Admin' : isEditor ? 'Editor' : 'User';`
+✅
+```typescript
+const ROLE_LABELS: Record<string, string> = { admin: 'Admin', editor: 'Editor' };
+const label = ROLE_LABELS[role] ?? 'User';
+```
+
+---
+
+## Q25 — Throwing String Literal Instead of `Error` Object
+**Severity**: LOW
+
+Throwing a string loses the stack trace. Always `throw new Error(message)`. Enforced by `no-throw-literal` ESLint rule.
+
+### Detect
+```bash
+grep -rn "throw '" src/ --include="*.ts"
+grep -rn 'throw "' src/ --include="*.ts"
+```
+
+❌ `throw 'User not found';`
+✅ `throw new Error('User not found');`
+
+---
+
+## Q26 — Database Connection Not Closed in `finally` Block
+**Severity**: MEDIUM
+
+Any code that opens a one-off connection (not from the shared pool) must close it in a `finally` block. Unclosed connections cause pool exhaustion.
+
+### Detect
+```bash
+# Look for connect() calls without a corresponding finally/close pattern
+grep -rn "\.connect()" src/ --include="*.ts" -A10 | grep -c "finally\|close()"
+```
+
+❌
+```typescript
+const conn = await pool.connect();
+const result = await conn.query('SELECT ...');
+conn.release();  // not reached if query throws
+```
+
+✅
+```typescript
+const conn = await pool.connect();
+try {
+  return await conn.query('SELECT ...');
+} finally {
+  conn.release();
+}
+```
+
+---
+
+## Q27 — Meaningless Variable Name
+**Severity**: LOW
+
+Single-letter variable names outside of loop counters (`i`, `j`) make code unreadable. Exception: `_` for intentionally unused destructured values.
+
+### Detect
+```bash
+# Single-letter vars that aren't loop counters or destructure ignores
+grep -rn "\bconst [a-wyz] \b\|\blet [a-wyz] \b" src/ --include="*.ts" \
+  | grep -v "for\|=>\|test\|spec"
+```
+
+❌ `const u = await getUser(id);`
+✅ `const user = await getUser(id);`
 
 ---
 

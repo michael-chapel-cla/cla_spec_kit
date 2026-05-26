@@ -38,6 +38,8 @@ Load this file for `/api-audit`. Starting score: **100**. Apply penalties per fi
 | A26 | No Postman collection in `postman/collections/`                            | LOW      | -3      |
 | A27 | Missing `docs/ops/` operational runbooks                                   | LOW      | -3      |
 | A28 | Breaking change introduced without new major version                       | HIGH     | -15     |
+| A29 | CI/CD quality gates missing (Spectral lint, Newman, coverage)              | MEDIUM   | -7      |
+| A30 | No contract tests validating responses against OpenAPI schema              | MEDIUM   | -7      |
 
 ---
 
@@ -846,6 +848,76 @@ grep -rE '/api/v[0-9]+/' src/ | sed 's|.*/api/v\([0-9]\+\)/.*|v\1|' | sort -u
 ```
 /api/v1/Users  → still returns { id, name }  (maintained)
 /api/v2/Users  → returns { userId, fullName }  (new major version)
+```
+
+---
+
+## A29 — Missing CI/CD Quality Gates
+
+**Severity:** MEDIUM | **Penalty:** -7
+
+The pipeline must include four gates: OpenAPI lint (`spectral lint`), unit/integration tests, API contract tests (Newman/Postman), and a coverage check. Missing any of these allows broken or non-compliant APIs to reach production silently.
+
+**Detect:**
+```bash
+# Check for Spectral OpenAPI lint
+grep -rn "spectral\|openapi-linter" azure-pipelines.yml .github/ 2>/dev/null
+
+# Check for Newman/Postman CLI
+grep -rn "newman" azure-pipelines.yml .github/ 2>/dev/null
+
+# Check for coverage gate
+grep -rn "coverage" azure-pipelines.yml .github/ 2>/dev/null
+```
+
+❌
+```yaml
+# Pipeline only runs npm test — no OpenAPI lint, no contract tests, no coverage gate
+- script: npm test
+```
+
+✅
+```yaml
+- script: npx spectral lint docs/openapi.yaml       # OpenAPI spec lint
+- script: npm test                                  # unit + integration tests
+- script: npm run coverage                          # 85% threshold gate
+- uses: matt-ball/newman-action@v1                  # API contract tests
+  with:
+    collection: postman/collections/app.json
+    environment: postman/environments/app-ci.json
+```
+
+---
+
+## A30 — No Contract Tests Validating Responses Against OpenAPI Schema
+
+**Severity:** MEDIUM | **Penalty:** -7
+
+Contract tests run real API calls and validate every response body against the OpenAPI schema. They are distinct from unit tests and Postman smoke tests — they specifically catch drift between the declared spec and the actual implementation.
+
+**Detect:**
+```bash
+# Look for schema validation in test files
+grep -rn "validate\|openapi-validator\|ajv\|jsonschema" tests/ --include="*.ts" 2>/dev/null
+```
+
+❌
+```typescript
+// Only asserts specific fields — no full schema validation
+expect(response.body.id).toBeDefined();
+```
+
+✅
+```typescript
+import Ajv from 'ajv';
+
+it('GET /api/v1/Users/:id response matches OpenAPI schema', async () => {
+  const response = await request(app).get('/api/v1/Users/1').set('Authorization', `Bearer ${token}`);
+  const ajv = new Ajv();
+  const validate = ajv.compile(openapiSchema.components.schemas.User);
+  expect(validate(response.body)).toBe(true);
+  expect(ajv.errors).toBeNull();
+});
 ```
 
 ---
