@@ -281,10 +281,6 @@ cla_spec_kit/
 ├── plans/                ← /plan writes here
 ├── repos/                ← /create writes here — generated apps live here
 ├── specs/                ← Coding standards (read-only)
-│   ├── API_STANDARDS.md
-│   ├── CODE_QUALITY_SPECS.md
-│   ├── FLYWAY_DB_SPECS.md
-│   ├── FRAMEWORK_SPECS.md
 │   └── context/          ← 8 distilled audit rule files used by /validate
 │       ├── 01-security.md
 │       ├── 02-code-quality.md
