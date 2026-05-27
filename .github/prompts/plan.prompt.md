@@ -163,7 +163,7 @@ Show the COMPLETE file tree for all three repos. Expand every feature folder, pa
 ├── .devcontainer/devcontainer.json
 ├── .env.example
 ├── docker-compose.yml
-└── azure-pipelines.yml
+└── .github/workflows/ci.yml
 
 /repos/db-${input:appName}/               ← DB repo root
 ├── migrations/
@@ -193,7 +193,7 @@ Show the COMPLETE file tree for all three repos. Expand every feature folder, pa
 │   └── values-{env}.yaml
 ├── .devcontainer/devcontainer.json
 ├── docker-compose.yml
-└── azure-pipelines.yml
+└── .github/workflows/ci.yml
 ```
 
 ---

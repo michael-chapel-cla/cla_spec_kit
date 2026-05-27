@@ -62,7 +62,9 @@ web-api-<app-name>/
 │   └── devcontainer.json
 ├── .env.example
 ├── docker-compose.yml
-└── azure-pipelines.yml
+└── .github/
+    └── workflows/
+        └── ci.yml
 ```
 
 **NEVER** use top-level: `controllers/`, `services/`, `repositories/`, `handlers/`, `middleware/` — these are non-compliant.
@@ -263,7 +265,7 @@ Create these three sibling directories under `/repos/`:
 - `package.json`: set `name` to `web-api-${input:appName}`, set `description`
 - `src/static-config.json`: set `FRAMEWORK_HTTP_PORT` to `8080`
 - `README.md`: replace TODO content with app name, local dev steps, link to `docs/openapi.yaml`
-- `azure-pipelines.yml`: replace all occurrences of `templateweb` with `web-api-${input:appName}`
+- `.github/workflows/ci.yml`: replace all occurrences of `templateweb` with `web-api-${input:appName}`
 - Create `.env.example` with one entry per environment variable from the plan. Use realistic but non-functional placeholder values with an inline comment for each. Group by category:
 
 ```bash
@@ -608,7 +610,7 @@ Create `README.md` explaining the migration structure, how to run locally, and t
 
 **5b.** Customize copied files:
 - `package.json`: set `name` to `web-${input:appName}`
-- `azure-pipelines.yml`: replace all occurrences of `templateweb` with `web-${input:appName}`
+- `.github/workflows/ci.yml`: replace all occurrences of `templateweb` with `web-${input:appName}`
 - `public/static-config.json`:
   - `FRAMEWORK_UI_NAME`: app display name
   - `FRAMEWORK_UI_AUTH_ENTRA.clientId`: `""` — set at deploy
@@ -887,7 +889,7 @@ Verify before reporting complete:
 14. `db-${input:appName}/docker-compose.yml` mounts `./migrations` (standalone, self-contained)
 15. `web-${input:appName}/docker-compose.yml` contains only the frontend service
 16. `.env.example` exists in `web-api-${input:appName}/` and contains every environment variable in the plan
-17. `azure-pipelines.yml` in both `web-api-${input:appName}/` and `web-${input:appName}/` has no remaining `templateweb` references
+17. `.github/workflows/ci.yml` in both `web-api-${input:appName}/` and `web-${input:appName}/` has no remaining `templateweb` references
 18. `.github/copilot-instructions.md` exists in all three repos with app-specific structure sections
 19. `.devcontainer/devcontainer.json` exists in all three repos
 20. `postman/environments/${input:appName}-local.postman_environment.json` exists in `web-api-${input:appName}/`

@@ -153,7 +153,7 @@ repos/
 └── db-my-new-app/        ← Flyway SQL migrations
 ```
 
-Each repo has its own `helm/`, `docker-compose.yml`, `.devcontainer/`, and `azure-pipelines.yml`.
+Each repo has its own `helm/`, `docker-compose.yml`, `.devcontainer/`, and `.github/workflows/ci.yml`.
 
 The scaffold includes:
 - Feature-organized routes, services, schemas, and types for every endpoint in the plan
@@ -261,7 +261,7 @@ All generated applications use this stack. There is no configuration — the tem
 | Auth | Azure Entra — OIDC for SPA, JWT bearer for API |
 | Local dev | Docker + Docker Compose |
 | Deployment | AKS + Helm |
-| CI/CD | Azure Pipelines |
+| CI/CD | GitHub Actions |
 
 ---
 

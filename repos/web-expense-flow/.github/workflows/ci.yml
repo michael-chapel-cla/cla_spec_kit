@@ -1,0 +1,199 @@
+name: CI/CD — web-expense-flow
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  id-token: write   # OIDC token for Azure login
+  contents: write   # push release tags
+
+jobs:
+  test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage/
+
+  build:
+    name: Build & Push Image
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate image tag
+        id: tag
+        run: echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to ACR
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.ACR_NAME }}.azurecr.io/web-expense-flow:latest
+            ${{ secrets.ACR_NAME }}.azurecr.io/web-expense-flow:${{ steps.tag.outputs.tag }}
+
+  deploy-dev:
+    name: Deploy to DEV
+    needs: build
+    runs-on: ubuntu-latest
+    environment: expense-flow-dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ secrets.AKS_RESOURCE_GROUP_DEV }}
+          cluster-name: ${{ secrets.AKS_CLUSTER_NAME_DEV }}
+
+      - name: Helm deploy
+        run: |
+          helm upgrade --install web-expense-flow ./helm \
+            --values ./helm/values.yaml \
+            --values ./helm/values-dev.yaml \
+            --set image.repository=${{ secrets.ACR_NAME }}.azurecr.io/web-expense-flow \
+            --set image.tag=${{ needs.build.outputs.image-tag }} \
+            --namespace expense-flow \
+            --create-namespace \
+            --wait
+
+  deploy-qa:
+    name: Deploy to QA
+    needs: [build, deploy-dev]
+    runs-on: ubuntu-latest
+    environment: expense-flow-qa
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ secrets.AKS_RESOURCE_GROUP_QA }}
+          cluster-name: ${{ secrets.AKS_CLUSTER_NAME_QA }}
+
+      - name: Helm deploy
+        run: |
+          helm upgrade --install web-expense-flow ./helm \
+            --values ./helm/values.yaml \
+            --values ./helm/values-qa.yaml \
+            --set image.repository=${{ secrets.ACR_NAME }}.azurecr.io/web-expense-flow \
+            --set image.tag=${{ needs.build.outputs.image-tag }} \
+            --namespace expense-flow \
+            --create-namespace \
+            --wait
+
+  deploy-uat:
+    name: Deploy to UAT
+    needs: [build, deploy-qa]
+    runs-on: ubuntu-latest
+    environment: expense-flow-uat   # add required reviewers in GitHub → Settings → Environments
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ secrets.AKS_RESOURCE_GROUP_UAT }}
+          cluster-name: ${{ secrets.AKS_CLUSTER_NAME_UAT }}
+
+      - name: Helm deploy
+        run: |
+          helm upgrade --install web-expense-flow ./helm \
+            --values ./helm/values.yaml \
+            --values ./helm/values-uat.yaml \
+            --set image.repository=${{ secrets.ACR_NAME }}.azurecr.io/web-expense-flow \
+            --set image.tag=${{ needs.build.outputs.image-tag }} \
+            --namespace expense-flow \
+            --create-namespace \
+            --wait
+
+  deploy-prod:
+    name: Deploy to Production
+    needs: [build, deploy-uat]
+    runs-on: ubuntu-latest
+    environment: expense-flow-prod  # add required reviewers in GitHub → Settings → Environments
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ secrets.AKS_RESOURCE_GROUP_PROD }}
+          cluster-name: ${{ secrets.AKS_CLUSTER_NAME_PROD }}
+
+      - name: Helm deploy
+        run: |
+          helm upgrade --install web-expense-flow ./helm \
+            --values ./helm/values.yaml \
+            --values ./helm/values-prd.yaml \
+            --set image.repository=${{ secrets.ACR_NAME }}.azurecr.io/web-expense-flow \
+            --set image.tag=${{ needs.build.outputs.image-tag }} \
+            --namespace expense-flow \
+            --create-namespace \
+            --wait
+
+      - name: Tag release
+        run: |
+          git tag "release-${{ needs.build.outputs.image-tag }}"
+          git push origin "release-${{ needs.build.outputs.image-tag }}"

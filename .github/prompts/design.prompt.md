@@ -20,7 +20,7 @@ All apps built with this spec-kit use a fixed stack. Write all technical section
 **Database**: MSSQL (SQL Server) + Flyway versioned migrations
 **Auth**: Azure Entra (OIDC for the SPA via `framework-react-core`, JWT Bearer for the API)
 **Infra**: Docker + Docker Compose (local dev) → AKS + Helm (production)
-**CI/CD**: Azure Pipelines
+**CI/CD**: GitHub Actions
 
 **Standard API conventions (reference in HLD/LLD):**
 - URI versioning: all routes at `/api/v1/ResourceName`

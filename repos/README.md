@@ -16,7 +16,7 @@ repos/
 Each repo is self-contained:
 - Its own `docker-compose.yml`
 - Its own `.devcontainer/devcontainer.json`
-- Its own `azure-pipelines.yml`
+- Its own `.github/workflows/ci.yml`
 - Its own `.github/copilot-instructions.md`
 - API and frontend each have their own `helm/` chart
 

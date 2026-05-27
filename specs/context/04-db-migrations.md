@@ -274,7 +274,7 @@ git log --all --full-history -- "flyway.conf" | head -5
 
 ```bash
 # Flag DB_PASSWORD referenced as a plain variable, not a secret
-grep -rn "DB_PASSWORD" azure-pipelines.yml .github/ 2>/dev/null | grep -v "secrets\.\|group:"
+grep -rn "DB_PASSWORD" .github/workflows/ 2>/dev/null | grep -v "secrets\."
 ```
 
 ---
@@ -454,7 +454,7 @@ V1.0.3__create_user_roles.sql   ← creates dbo.UserRoles (the join table) only
 
 **Detect:**
 ```bash
-grep -rn "trustServerCertificate=true" azure-pipelines.yml .github/ flyway.conf.example docker-compose.yml 2>/dev/null
+grep -rn "trustServerCertificate=true" .github/workflows/ flyway.conf.example docker-compose.yml 2>/dev/null
 # Review any non-local environment JDBC URLs for this flag
 grep -rn "trustServerCertificate=true" . --include="*.yml" --include="*.yaml" --include="*.conf" \
   | grep -v "localhost\|127.0.0.1\|local dev\|#"

@@ -861,13 +861,13 @@ The pipeline must include four gates: OpenAPI lint (`spectral lint`), unit/integ
 **Detect:**
 ```bash
 # Check for Spectral OpenAPI lint
-grep -rn "spectral\|openapi-linter" azure-pipelines.yml .github/ 2>/dev/null
+grep -rn "spectral\|openapi-linter" .github/workflows/ 2>/dev/null
 
 # Check for Newman/Postman CLI
-grep -rn "newman" azure-pipelines.yml .github/ 2>/dev/null
+grep -rn "newman" .github/workflows/ 2>/dev/null
 
 # Check for coverage gate
-grep -rn "coverage" azure-pipelines.yml .github/ 2>/dev/null
+grep -rn "coverage" .github/workflows/ 2>/dev/null
 ```
 
 ❌
