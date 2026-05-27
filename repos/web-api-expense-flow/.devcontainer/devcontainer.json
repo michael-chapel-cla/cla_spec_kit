@@ -1,0 +1,23 @@
+{
+  "name": "ExpenseFlow API",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bullseye",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "postCreateCommand": "npm install",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-typescript-next",
+        "redhat.vscode-yaml"
+      ]
+    }
+  },
+  "forwardPorts": [8080, 9229],
+  "mounts": ["source=${localEnv:HOME}/.azure,target=/root/.azure,type=bind,consistency=cached"],
+  "remoteUser": "node"
+}

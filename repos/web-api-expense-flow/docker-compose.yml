@@ -1,0 +1,56 @@
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "${DB_PASSWORD}"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "${DB_PASSWORD}" -Q "SELECT 1" -b -o /dev/null -C
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  db-init:
+    image: mcr.microsoft.com/mssql-tools
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      /opt/mssql-tools/bin/sqlcmd -S db -U sa -P "${DB_PASSWORD}"
+      -Q "IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'${DB_DATABASE}') CREATE DATABASE [${DB_DATABASE}]"
+    restart: on-failure
+
+  flyway:
+    image: flyway/flyway:10-alpine
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    command: migrate
+    volumes:
+      - ../db-expense-flow/migrations:/flyway/sql
+    environment:
+      FLYWAY_URL: "jdbc:sqlserver://db:1433;databaseName=${DB_DATABASE};encrypt=true;trustServerCertificate=true"
+      FLYWAY_USER: "${DB_USER}"
+      FLYWAY_PASSWORD: "${DB_PASSWORD}"
+      FLYWAY_LOCATIONS: "filesystem:/flyway/sql"
+      FLYWAY_BASELINE_ON_MIGRATE: "true"
+
+  backend:
+    build:
+      context: .
+      target: development
+      args:
+        NPM_TOKEN: "${NPM_TOKEN:-}"
+    ports:
+      - "8080:8080"
+      - "9229:9229"
+    volumes:
+      - ./src:/opt/cla/src
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy

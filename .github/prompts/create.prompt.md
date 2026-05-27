@@ -1,6 +1,6 @@
 ---
 mode: agent
-description: Scaffold a complete application from an approved plan — backend, database, frontend, and Helm chart.
+description: Scaffold a complete application from an approved plan — three separate repos (API, frontend, database).
 tools:
   - codebase
   - editFiles
@@ -9,6 +9,13 @@ tools:
 ---
 
 Scaffold the application **${input:appName}** from the approved plan.
+
+Each application is split into three independent repositories:
+- `web-api-${input:appName}` — Fastify API (backend)
+- `web-${input:appName}` — React SPA (frontend)
+- `db-${input:appName}` — Flyway database migrations
+
+These repos are designed to be cloned as siblings in the same parent directory so docker-compose volume paths resolve correctly.
 
 ---
 
@@ -20,16 +27,18 @@ These rules are non-negotiable. Every file you generate must conform to them.
 
 ### API STRUCTURE
 
-**Directory structure — MUST follow exactly:**
+**API repo root structure — MUST follow exactly:**
 ```
-backend/
+web-api-<app-name>/
 ├── docs/
 │   ├── openapi.yaml            ← OpenAPI 3.0.3 — written before implementation
 │   └── ops/
 │       └── runbook.md
 ├── postman/
-│   └── collections/
-│       └── <app-name>.json
+│   ├── collections/
+│   │   └── <app-name>.json
+│   └── environments/
+│       └── <app-name>-local.postman_environment.json
 ├── src/
 │   ├── features/               ← Code organized by BUSINESS FEATURE, never by technical layer
 │   │   └── <feature>/
@@ -46,7 +55,14 @@ backend/
 ├── tests/
 │   ├── unit/
 │   └── integration/
-└── ops/
+├── helm/
+│   ├── Chart.yaml
+│   └── values*.yaml
+├── .devcontainer/
+│   └── devcontainer.json
+├── .env.example
+├── docker-compose.yml
+└── azure-pipelines.yml
 ```
 
 **NEVER** use top-level: `controllers/`, `services/`, `repositories/`, `handlers/`, `middleware/` — these are non-compliant.
@@ -129,26 +145,6 @@ jwt.verify(token, publicKey, {
 ❌ `jwt.verify(token, secret)` — no algorithm, no issuer, no audience
 ❌ `jwt.decode(token)` — decode without verification
 
-**Auth middleware pattern:**
-```typescript
-async function authMiddleware(request, reply) {
-  const authHeader = request.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return reply.status(401).send({ error: 'UNAUTHORIZED', message: 'Missing token', requestId: request.id, timestamp: new Date().toISOString() });
-  }
-  try {
-    const claims = jwt.verify(authHeader.slice(7), publicKey, {
-      algorithms: ['RS256'],
-      issuer: process.env['ENTRA_ISSUER']!,
-      audience: process.env['ENTRA_AUDIENCE']!,
-    });
-    request.user = claims;
-  } catch {
-    return reply.status(401).send({ error: 'UNAUTHORIZED', message: 'Invalid token', requestId: request.id, timestamp: new Date().toISOString() });
-  }
-}
-```
-
 Apply to all routes except `/health` and `/health/ready`.
 
 ---
@@ -169,12 +165,7 @@ Helm values: leave all secret values as `""` with a comment — never a literal 
 ✅ request.input('id', sql.Int, userId).query('SELECT UserId, Email FROM dbo.Users WHERE UserId = @id');
 ```
 
-**S12 — No stack traces in API responses:**
-```typescript
-❌ reply.send({ error: err.message, stack: err.stack });
-✅ req.log.error({ err }, 'Request failed');
-   reply.status(500).send({ error: 'INTERNAL_ERROR', message: 'An unexpected error occurred.', requestId: req.id });
-```
+**S12 — No stack traces in API responses.**
 
 **S15 — No wildcard CORS:**
 ```typescript
@@ -193,51 +184,17 @@ await app.register(rateLimit, { max: 100, timeWindow: '1 minute', keyGenerator: 
 await app.register(helmet, { contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], scriptSrc: ["'self'"] } } });
 ```
 
-**S19 — No sensitive data in logs:**
-```typescript
-❌ logger.info({ password: req.body.password });
-❌ logger.debug({ headers: req.headers }); // contains Authorization
-✅ logger.info({ userId: user.id, action: 'login' }, 'User logged in');
-```
-
 **S10 — React XSS:**
 ```tsx
 ❌ <div dangerouslySetInnerHTML={{ __html: userContent }} />
 ✅ <div>{userContent}</div>
-// If HTML required: DOMPurify.sanitize(userContent) before rendering
 ```
-
----
-
-### STRUCTURED LOGGING
-
-Use Fastify's built-in logger (`fastify.log` / `req.log`) — never `console.log`.
-
-Required fields on every log entry:
-- `timestamp`, `level`, `message`, `requestId`, `traceId`, `spanId`
-- `method`, `path`, `statusCode`, `latencyMs`
-- `clientIp` (mask last octet: `192.168.1.xxx`), `service`, `version`, `environment`
 
 ---
 
 ### CODE QUALITY
 
-**No TypeScript `any`:**
-```typescript
-❌ function process(data: any): any { ... }
-✅ function process(data: unknown): ProcessedResult {
-     const validated = DataSchema.parse(data); // Zod narrow
-     return transform(validated);
-   }
-```
-
-**async/await only — no `.then()` chains:**
-```typescript
-❌ fetchUser(id).then(user => process(user)).then(save).catch(handleError);
-✅ try { const user = await fetchUser(id); const result = await process(user); await save(result); } catch (err) { handleError(err); }
-```
-
-**`const` for all immutable variables. Strict equality (`===`). Early returns over deep nesting.**
+**No TypeScript `any`.** **`const` for all immutable variables. Strict equality (`===`). Early returns over deep nesting.**
 
 **No `console.log`** — use `fastify.log` or `req.log`.
 
@@ -253,7 +210,6 @@ const pool = await new sql.ConnectionPool({ ...config }).connect();
 - API calls in `src/services/` only — never directly in components
 - List keys must be stable unique IDs — never array index
 - `useEffect` dependency arrays must include all dependencies
-- Timers/subscriptions must return a cleanup function
 
 ---
 
@@ -265,7 +221,6 @@ V{major}.{minor}.{patch}__{description}.sql   ← versioned, runs once
 R__{description}.sql                           ← repeatable (views, procs, functions)
 
 ✅ V1.0.0__create_schema.sql
-✅ R__vw_user_summary.sql
 ❌ V1_initial_schema.sql   ← single underscore
 ❌ v1__schema.sql          ← lowercase v
 ```
@@ -277,70 +232,8 @@ R__{description}.sql                           ← repeatable (views, procs, fun
 Id         INT NOT NULL IDENTITY(1,1) CONSTRAINT PK_TableName PRIMARY KEY CLUSTERED (Id)
 CreatedOn  DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
 ModifiedOn DATETIME2 NULL
-Name       NVARCHAR(200) NOT NULL   -- NVARCHAR for all strings
-Enabled    BIT NOT NULL DEFAULT 1   -- BIT for booleans (use 1/0, not true/false)
-```
-
-**Never `SELECT *` in migrations.**
-
-**Data migrations must use transactions with verification:**
-```sql
-BEGIN TRANSACTION;
-  UPDATE dbo.Users SET Status = 'active' WHERE Status IS NULL;
-  IF EXISTS (SELECT 1 FROM dbo.Users WHERE Status IS NULL)
-  BEGIN
-    ROLLBACK;
-    THROW 50001, 'Backfill failed: NULL Status values remain', 1;
-  END
-COMMIT;
-```
-
-**Never leave a transaction open** — always COMMIT or ROLLBACK.
-
-**Use IF NOT EXISTS guards for additive DDL.**
-
-**Stored procedures and views → repeatable migrations:**
-```sql
--- R__usp_get_user_documents.sql
-CREATE OR ALTER PROCEDURE dbo.usp_GetUserDocuments @UserId INT AS ...
-```
-
-**Never commit `flyway.conf` with real credentials** — only `flyway.conf.example`.
-
-**DB lives at `/repos/${input:appName}/db/` — NOT inside `backend/`.**
-
----
-
-### OPENAPI SPEC
-
-Every endpoint in `docs/openapi.yaml` must have:
-- `summary` + `description`
-- `security` with required scopes
-- All parameters with `schema`, constraints, and `example`
-- Response schemas for ALL status codes
-- At least one happy-path example and one error example
-
----
-
-### FRONTEND
-
-**Service layer — never call API from components:**
-```typescript
-// src/services/userApi.ts
-export const userApi = {
-  async getUsers(): Promise<User[]> {
-    const { data } = await axios.get<User[]>('/api/v1/Users');
-    return data;
-  }
-};
-```
-
-**MUI for all UI** — no raw HTML for layout (use `Box`, `Stack`, `Grid`, `Paper`).
-
-**Router protection:**
-```typescript
-{ path: '/dashboard', element: <Dashboard />, loader: requireAuth() }  // protected
-{ path: '/auth/callback', element: <AuthCallback /> }                    // public
+Name       NVARCHAR(200) NOT NULL
+Enabled    BIT NOT NULL DEFAULT 1
 ```
 
 ---
@@ -351,22 +244,27 @@ export const userApi = {
 
 Read all files in `/plans/${input:appName}/`. Note every API endpoint, DB table, frontend page, and Helm config change before creating any files.
 
-### Step 2 — Create the output directory
+### Step 2 — Create the three output directories
 
-Create `/repos/${input:appName}/` if it does not exist.
+Create these three sibling directories under `/repos/`:
+- `/repos/web-api-${input:appName}/`
+- `/repos/web-${input:appName}/`
+- `/repos/db-${input:appName}/`
 
-### Step 3 — Scaffold the backend
+---
 
-**IMPORTANT: Always start from the template. Never create backend files from scratch.**
+### Step 3 — Scaffold the API repo (`web-api-${input:appName}`)
 
-3a. Copy the entire contents of `/templates/framework-nodejs-starter-kit/` into `/repos/${input:appName}/backend/`.
+**IMPORTANT: Always start from the template. Never create API files from scratch.**
 
-3b. Customize copied files:
-- `package.json`: set `name` to `${input:appName}-backend`, set `description`
+**3a.** Copy the entire contents of `/templates/framework-nodejs-starter-kit/` into `/repos/web-api-${input:appName}/`.
+
+**3b.** Customize copied files:
+- `package.json`: set `name` to `web-api-${input:appName}`, set `description`
 - `src/static-config.json`: set `FRAMEWORK_HTTP_PORT` to `8080`
 - `README.md`: replace TODO content with app name, local dev steps, link to `docs/openapi.yaml`
-- `azure-pipelines.yml`: replace all occurrences of `templateweb` with `${input:appName}` — this updates variable group names, environment names, and repository references throughout the pipeline
-- Create `backend/.env.example`: one entry per environment variable from the plan's Environment Variables table. Use realistic but non-functional placeholder values with an inline comment for each. Group by category (Database, Auth, CORS, then any app-specific vars). Required entries:
+- `azure-pipelines.yml`: replace all occurrences of `templateweb` with `web-api-${input:appName}`
+- Create `.env.example` with one entry per environment variable from the plan. Use realistic but non-functional placeholder values with an inline comment for each. Group by category:
 
 ```bash
 # Database — SQL Server connection
@@ -385,7 +283,7 @@ CORS_ORIGINS=http://localhost:3000
 # (add any app-specific variables from the plan below this line)
 ```
 
-3c. Create `docs/openapi.yaml` — **write this BEFORE any route code** (contract-first). Every endpoint from the plan must appear here. Use this structure:
+**3c.** Create `docs/openapi.yaml` — **write this BEFORE any route code** (contract-first). Every endpoint from the plan must appear here. Use this structure:
 
 ```yaml
 openapi: 3.0.3
@@ -428,45 +326,51 @@ paths:
       responses:
         '200':
           description: Service is healthy
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status: { type: string, example: HEALTHY }
-                  timestamp: { type: string, format: date-time }
-                  checks: { type: object, additionalProperties: { type: string } }
   # One path block per endpoint from the plan
 ```
 
-Requirements for every non-health path entry:
-- `operationId`: unique camelCase verb+noun (`listUsers`, `createUser`, `getUserById`)
-- `tags`: feature module name
-- `security: [{ bearerAuth: [] }]` on every protected route
-- `parameters`: every path/query param with `schema`, `required`, and `example`
-- `requestBody` (POST/PUT/PATCH): `required: true`; inline schema with all fields, types, `required[]`, and validation constraints (`minLength`, `pattern`, `enum`, etc.)
-- `responses`: ALL expected status codes (200/201/204 + applicable 4xx + 500)
-  - Every response entry: `description` + `content` with inline or `$ref` schema
-  - 201 responses include `headers: { Location: { schema: { type: string } } }`
-  - All error responses use `$ref: '#/components/schemas/Error'`
+Every non-health path: `operationId`, `tags`, `security: [{ bearerAuth: [] }]`, full `parameters`, `requestBody` (POST/PUT/PATCH), and responses for ALL expected status codes. 201 responses include a `Location` header. All error responses use `$ref: '#/components/schemas/Error'`.
 
-3d. Create `src/shared/auth/auth.middleware.ts` — validates Bearer JWT with RS256, issuer, audience all from env.
+**3d.** Create `src/shared/auth/auth.middleware.ts` — validates Bearer JWT with RS256, issuer, audience all from env.
 
-3e. Create `src/shared/db/db.client.ts` — mssql ConnectionPool created once at startup; typed `executeQuery(sql, params)` helper; parameterized queries only; config from env.
+**3e.** Create `src/shared/db/db.client.ts` — mssql ConnectionPool created once at startup; typed `executeQuery(sql, params)` helper; parameterized queries only; config from env.
 
-3f. Create `src/shared/errors/error.handler.ts` — centralized Fastify error handler (see pattern above).
+**3f.** Create `src/shared/errors/error.handler.ts` — centralized Fastify error handler.
 
-3g. Register on app startup: `@fastify/helmet`, `@fastify/rate-limit` (100/min), `@fastify/cors` (env origins only).
+**3g.** Register on app startup: `@fastify/helmet`, `@fastify/rate-limit` (100/min), `@fastify/cors` (env origins only).
 
-3h. Create feature-based source structure. Implement the `docs/openapi.yaml` contract exactly — every route, request shape, and response shape must match the spec. For each feature from the plan:
-- `<feature>.routes.ts` — Fastify plugin registering all endpoints; applies auth middleware
+**3h.** Create feature-based source structure. Implement the `docs/openapi.yaml` contract exactly. For each feature from the plan:
+- `<feature>.routes.ts` — Fastify plugin; applies auth middleware
 - `<feature>.service.ts` — business logic; no framework dependencies; typed inputs/outputs; no `any`
-- `<feature>.schema.ts` — Zod schemas that match the openapi.yaml request/response schemas exactly
+- `<feature>.schema.ts` — Zod schemas matching openapi.yaml exactly
 - `<feature>.types.ts` — TypeScript interfaces matching DB entities
 
-3i. Create `docs/ops/runbook.md` — local dev setup, env var reference table, troubleshooting.
+**3i.** Create `docs/ops/runbook.md` — local dev setup, env var reference table, troubleshooting, and the following commands:
 
-3j. Create Postman artifacts:
+```bash
+# Ensure db-${input:appName} is cloned as a sibling of this repo
+# Clone: git clone <db-repo-url> ../db-${input:appName}
+
+# Copy and edit the env file
+cp .env.example .env
+
+# Start SQL Server
+docker compose up -d db
+
+# Create the app database (run once after first `up -d db`)
+docker compose run --rm db-init
+
+# Run Flyway migrations (reads ../db-${input:appName}/migrations)
+docker compose run --rm flyway
+
+# Start all services
+docker compose up
+
+# Run migrations only (validate existing)
+docker compose run --rm flyway validate
+```
+
+**3j.** Create Postman artifacts:
 - `postman/collections/${input:appName}.json` — Postman collection v2.1; one request per endpoint; `pm.test(...)` scripts verifying status code and response shape; all requests use `{{baseUrl}}` and `Authorization: Bearer {{bearerToken}}`
 - `postman/environments/${input:appName}-local.postman_environment.json`:
 
@@ -481,9 +385,9 @@ Requirements for every non-health path entry:
 }
 ```
 
-3k. Add health check routes (`GET /health`, `GET /health/ready`) — no auth on these.
+**3k.** Add health check routes (`GET /health`, `GET /health/ready`) — no auth.
 
-3l. Create backend test stubs. For each feature, create `tests/unit/<feature>.service.test.ts`:
+**3l.** Create backend test stubs. For each feature, create `tests/unit/<feature>.service.test.ts`:
 
 ```typescript
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -496,28 +400,11 @@ describe('<Feature>Service', () => {
   beforeEach(() => { vi.clearAllMocks(); service = new <Feature>Service(mockDb as any); });
 
   it('is instantiated correctly', () => { expect(service).toBeDefined(); });
-  // TODO: one describe block per public method; stub responses with mockDb.executeQuery.mockResolvedValue(...)
+  // TODO: one describe block per public method
 });
 ```
 
-### Step 4 — Scaffold the database
-
-**DB lives at `/repos/${input:appName}/db/` — NOT inside `backend/`.**
-
-```
-db/
-├── migrations/
-│   ├── V1.0.0__create_schema.sql      ← IF NOT EXISTS schema creation
-│   └── V1.0.1__create_<tables>.sql    ← one file per table or logical group
-├── seeds/
-│   └── seed_reference_data.sql        ← if applicable
-├── flyway.conf.example                ← placeholder values only
-└── README.md                          ← local DB workflow
-```
-
-### Step 5 — Generate root docker-compose.yml
-
-Create `/repos/${input:appName}/docker-compose.yml` at the repo root. This file wires together SQL Server, the db-init helper, Flyway, the backend, and the frontend for local development.
+**3m.** Create `docker-compose.yml` at the API repo root. This wires together SQL Server, db-init, Flyway (reading migrations from the sibling db repo), and the backend:
 
 ```yaml
 services:
@@ -553,7 +440,7 @@ services:
         condition: service_completed_successfully
     command: migrate
     volumes:
-      - ./db/migrations:/flyway/sql
+      - ../db-${input:appName}/migrations:/flyway/sql
     environment:
       FLYWAY_URL: "jdbc:sqlserver://db:1433;databaseName=${DB_DATABASE};encrypt=true;trustServerCertificate=true"
       FLYWAY_USER: "${DB_USER}"
@@ -563,7 +450,7 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: .
       target: development
       args:
         NPM_TOKEN: "${NPM_TOKEN:-}"
@@ -571,52 +458,157 @@ services:
       - "8080:8080"
       - "9229:9229"
     volumes:
-      - ./backend/src:/opt/cla/src
-    env_file: ./backend/.env
+      - ./src:/opt/cla/src
+    env_file: .env
     depends_on:
       db:
         condition: service_healthy
+```
 
-  frontend:
-    build:
-      context: ./frontend
-      target: base
-      args:
-        NPM_TOKEN: "${NPM_TOKEN:-}"
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend/src:/opt/cla/src
-      - ./frontend/public:/opt/cla/public
+**3n.** Create `.devcontainer/devcontainer.json`:
+
+```json
+{
+  "name": "${input:appName} API",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bullseye",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "postCreateCommand": "npm install",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-typescript-next",
+        "redhat.vscode-yaml"
+      ]
+    }
+  },
+  "forwardPorts": [8080, 9229],
+  "mounts": ["source=${localEnv:HOME}/.azure,target=/root/.azure,type=bind,consistency=cached"],
+  "remoteUser": "node"
+}
+```
+
+**3o.** Copy the Helm chart. Copy the entire contents of `/helm/` into `/repos/web-api-${input:appName}/helm/`. Apply the API-specific Helm config from the plan:
+- `helm/Chart.yaml`: `name` → `web-api-${input:appName}`, `description`
+- `helm/values.yaml`: `app.name`, `image.repository`, `istio.pathPrefix` → `/api`, `serviceAccount.name`
+- All `values-*.yaml`: env-specific `istio.hosts`; `azureWorkloadIdentityClientId` as empty placeholder
+
+---
+
+### Step 4 — Scaffold the DB repo (`db-${input:appName}`)
+
+Create the following structure at `/repos/db-${input:appName}/`:
+
+```
+db-${input:appName}/
+├── migrations/
+│   ├── V1.0.0__create_schema.sql      ← IF NOT EXISTS schema creation
+│   └── V1.0.1__create_<tables>.sql    ← one file per table or logical group
+├── seeds/
+│   └── seed_reference_data.sql        ← if applicable
+├── .devcontainer/
+│   └── devcontainer.json
+├── docker-compose.yml
+├── flyway.conf.example
+└── README.md
+```
+
+Create Flyway migration files per the plan's DB schema. Every table must include:
+```sql
+Id         INT NOT NULL IDENTITY(1,1) CONSTRAINT PK_TableName PRIMARY KEY CLUSTERED (Id)
+CreatedOn  DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+ModifiedOn DATETIME2 NULL
+```
+
+Create `flyway.conf.example` with placeholder values only (no real credentials).
+
+Create `docker-compose.yml` for standalone DB + migration work:
+
+```yaml
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
-      NODE_ENV: development
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "${DB_PASSWORD}"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "${DB_PASSWORD}" -Q "SELECT 1" -b -o /dev/null -C
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  db-init:
+    image: mcr.microsoft.com/mssql-tools
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      /opt/mssql-tools/bin/sqlcmd -S db -U sa -P "${DB_PASSWORD}"
+      -Q "IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'${DB_DATABASE}') CREATE DATABASE [${DB_DATABASE}]"
+    restart: on-failure
+
+  flyway:
+    image: flyway/flyway:10-alpine
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    command: migrate
+    volumes:
+      - ./migrations:/flyway/sql
+    environment:
+      FLYWAY_URL: "jdbc:sqlserver://db:1433;databaseName=${DB_DATABASE};encrypt=true;trustServerCertificate=true"
+      FLYWAY_USER: "${DB_USER}"
+      FLYWAY_PASSWORD: "${DB_PASSWORD}"
+      FLYWAY_LOCATIONS: "filesystem:/flyway/sql"
+      FLYWAY_BASELINE_ON_MIGRATE: "true"
 ```
 
-Also add the following commands to `backend/docs/ops/runbook.md` under a "Local Development" section:
+Create `.devcontainer/devcontainer.json`:
 
-```bash
-# Start SQL Server only
-docker compose --env-file backend/.env up -d db
-
-# Create the app database (run once after first `up -d db`)
-docker compose --env-file backend/.env run --rm db-init
-
-# Run Flyway migrations
-docker compose --env-file backend/.env run --rm flyway
-
-# Start all services (use for integration testing or full local dev)
-docker compose --env-file backend/.env up
+```json
+{
+  "name": "${input:appName} DB",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bullseye",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "redhat.vscode-yaml",
+        "ms-mssql.mssql"
+      ]
+    }
+  },
+  "forwardPorts": [1433],
+  "remoteUser": "node"
+}
 ```
 
-### Step 6 — Scaffold the frontend
+Create `README.md` explaining the migration structure, how to run locally, and the naming convention.
+
+---
+
+### Step 5 — Scaffold the frontend repo (`web-${input:appName}`)
 
 **IMPORTANT: Always start from the template. Never create frontend files from scratch.**
 
-6a. Copy the entire contents of `/templates/framework-react-starter-kit/` into `/repos/${input:appName}/frontend/`.
+**5a.** Copy the entire contents of `/templates/framework-react-starter-kit/` into `/repos/web-${input:appName}/`.
 
-6b. Customize:
-- `package.json`: set `name` to `${input:appName}-frontend`
-- `azure-pipelines.yml`: replace all occurrences of `templateweb` with `${input:appName}`
+**5b.** Customize copied files:
+- `package.json`: set `name` to `web-${input:appName}`
+- `azure-pipelines.yml`: replace all occurrences of `templateweb` with `web-${input:appName}`
 - `public/static-config.json`:
   - `FRAMEWORK_UI_NAME`: app display name
   - `FRAMEWORK_UI_AUTH_ENTRA.clientId`: `""` — set at deploy
@@ -626,19 +618,19 @@ docker compose --env-file backend/.env up
   - `FRAMEWORK_UI_AUTH_SCOPES`: required API scopes from the plan
 - `index.html`: set `<title>` to app display name
 
-6c. Create source structure per the plan:
+**5c.** Create source structure per the plan:
 ```
 src/
 ├── pages/<PageName>/<PageName>.tsx    ← one file per page
-├── components/                        ← shared UI components
-├── services/<feature>Api.ts           ← API calls (never in components)
-├── types/<feature>.types.ts           ← TypeScript interfaces
-└── router.tsx                         ← routes from the plan
+├── components/                         ← shared UI components
+├── services/<feature>Api.ts            ← API calls (never in components)
+├── types/<feature>.types.ts            ← TypeScript interfaces
+└── router.tsx                          ← routes from the plan
 ```
 
 Every page: MUI components, service calls only, loading + error states, TypeScript types, protected via `loader: requireAuth()` unless explicitly public.
 
-6d. Create frontend test stubs. For each page, create `test/unit/<PageName>.test.tsx`:
+**5d.** Create frontend test stubs. For each page, create `test/unit/<PageName>.test.tsx`:
 
 ```tsx
 import { describe, it, expect, vi } from 'vitest';
@@ -657,87 +649,231 @@ describe('<PageName>', () => {
 });
 ```
 
-### Step 7 — Scaffold the Helm chart
+**5e.** Create `docker-compose.yml` at the frontend repo root:
 
-**IMPORTANT: Always start from the template. Never create Helm files from scratch.**
+```yaml
+services:
+  frontend:
+    build:
+      context: .
+      target: base
+      args:
+        NPM_TOKEN: "${NPM_TOKEN:-}"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./src:/opt/cla/src
+      - ./public:/opt/cla/public
+    environment:
+      NODE_ENV: development
+      VITE_API_URL: "http://localhost:8080"
+```
 
-7a. Copy the entire contents of `/helm/` into `/repos/${input:appName}/helm/`.
+**5f.** Create `.devcontainer/devcontainer.json`:
 
-7b. Apply the Helm configuration changes from the plan:
-- `Chart.yaml`: `name`, `description`
-- `values.yaml`: `app.name`, `image.repository`, `istio.pathPrefix`, `serviceAccount.name`
-- All values files: env-specific `istio.hosts`; leave `azureWorkloadIdentityClientId` as empty placeholder
+```json
+{
+  "name": "${input:appName}",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bullseye",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "postCreateCommand": "npm install",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-typescript-next"
+      ]
+    }
+  },
+  "forwardPorts": [3000, 6006],
+  "mounts": ["source=${localEnv:HOME}/.azure,target=/root/.azure,type=bind,consistency=cached"],
+  "remoteUser": "node"
+}
+```
 
-### Step 8 — Generate .github/copilot-instructions.md
+**5g.** Copy the Helm chart. Copy the entire contents of `/helm/` into `/repos/web-${input:appName}/helm/`. Apply the frontend-specific Helm config from the plan:
+- `helm/Chart.yaml`: `name` → `web-${input:appName}`, `description`
+- `helm/values.yaml`: `app.name`, `image.repository`, `istio.pathPrefix` → `/`, `serviceAccount.name`
+- All `values-*.yaml`: env-specific `istio.hosts`; `azureWorkloadIdentityClientId` as empty placeholder
 
-Create `/repos/${input:appName}/.github/copilot-instructions.md`. This file travels with the generated app into its own repository and gives Copilot complete context for all future feature development — without access to the spec kit.
+---
 
-**Part 1 — App-specific header (fill in from the plan):**
+### Step 6 — Generate `.github/copilot-instructions.md` for each repo
 
+Each repo gets its own copilot-instructions tailored to its concern.
+
+**6a. API repo** — Create `/repos/web-api-${input:appName}/.github/copilot-instructions.md`:
+
+Part 1 — App-specific header:
 ```markdown
-# <App Display Name> — Copilot Instructions
+# <App Display Name> API — Copilot Instructions
 
-<One-sentence description of what this application does.>
+<One-sentence description of what this API does.>
 
 ## Tech Stack
-
 | Layer | Technology |
 |---|---|
-| Backend | Node.js 20 + Fastify + TypeScript |
-| Frontend | React 18 + Vite + TypeScript + MUI v6 |
+| Runtime | Node.js 20 + Fastify + TypeScript |
 | Database | MSSQL (SQL Server) + Flyway migrations |
-| Auth | Azure Entra — OIDC for SPA, JWT bearer for API |
-| Local dev | Docker + Docker Compose |
+| Auth | Azure Entra — RS256 JWT bearer |
+| Local dev | Docker Compose |
 | Deployment | AKS + Helm |
 
-## This App's Structure
+## Features (`src/features/<feature>/v1/`)
+<list each feature with a one-line description>
 
-**Backend features** (`backend/src/features/<feature>/v1/`):
-<list each feature from the plan with a one-line description of what it owns>
-
-**Frontend pages**:
-<list each page from the plan with its route and purpose>
-
-**Database tables** (`db/migrations/`):
+## Database Tables
 <list each table from the plan with a one-line description>
 
 ## Key Files
-- `backend/docs/openapi.yaml` — API contract; update this before adding new routes (contract-first)
-- `db/migrations/` — Flyway SQL migrations; never edit an applied file, always create a new one
-- `backend/.env.example` → `backend/.env` — environment variable reference for local setup
-- `docker-compose.yml` — local services: SQL Server + Flyway + backend + frontend
-- `backend/postman/collections/${input:appName}.json` — API test collection with test scripts
+- `docs/openapi.yaml` — API contract; update this BEFORE adding routes (contract-first)
+- `.env.example` → `.env` — environment variable reference for local setup
+- `docker-compose.yml` — local: SQL Server + Flyway + backend (Flyway reads ../db-${input:appName}/migrations)
+- `postman/collections/${input:appName}.json` — API test collection
+- `helm/` — Kubernetes deployment chart
 ```
 
-**Part 2 — Coding standards:**
+Part 2 — Read the spec kit's `.github/copilot-instructions.md` (this file). Copy every section from `## API Standards` through the end of the file verbatim. Do NOT copy spec-kit-specific content before that heading.
 
-Use the `codebase` tool to read `/.github/copilot-instructions.md` (the spec kit's instructions file). Starting from the `## API Standards` heading, copy every section through the end of that file — all rules, ❌/✅ examples, and code snippets — verbatim into the generated file. Do NOT copy the spec-kit-specific content before `## API Standards`.
+**6b. Frontend repo** — Create `/repos/web-${input:appName}/.github/copilot-instructions.md`:
 
-### Step 9 — Create root README
+Part 1 — App-specific header:
+```markdown
+# <App Display Name> — Copilot Instructions
 
-Create `/repos/${input:appName}/README.md`:
+<One-sentence description of what this SPA does.>
+
+## Tech Stack
+| Layer | Technology |
+|---|---|
+| Framework | React 18 + Vite + TypeScript |
+| UI | MUI v6 |
+| Auth | Azure Entra OIDC via framework-react-core (MSAL) |
+| Local dev | Docker Compose |
+| Deployment | AKS + Helm |
+
+## Pages (`src/pages/`)
+<list each page with its route and purpose>
+
+## Services (`src/services/`)
+<list each service file and which API endpoints it calls>
+
+## Key Files
+- `public/static-config.json` — Entra clientId/authority (never hardcode these values)
+- `docker-compose.yml` — local: frontend dev server (backend runs separately from web-api-${input:appName})
+- `helm/` — Kubernetes deployment chart
+- Backend API: `web-api-${input:appName}` repo, runs on port 8080 locally
+```
+
+Part 2 — Same as above: copy from `## API Standards` through end of spec kit copilot-instructions.
+
+**6c. DB repo** — Create `/repos/db-${input:appName}/.github/copilot-instructions.md`:
+
+```markdown
+# <App Display Name> DB — Copilot Instructions
+
+Flyway migration scripts for the <App Name> application. These migrations are consumed by the `web-api-${input:appName}` backend via docker-compose volume mount.
+
+## Migration Files (`migrations/`)
+<list each migration file with its version and description>
+
+## Rules
+- NEVER edit an applied migration file — create a new versioned file instead
+- Naming: `V{major}.{minor}.{patch}__{description}.sql` (double underscore, uppercase V)
+- All tables: `Id INT NOT NULL IDENTITY(1,1)` PK, `CreatedOn DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()`, `ModifiedOn DATETIME2 NULL`
+- All strings: `NVARCHAR`, all booleans: `BIT` (1/0 not true/false), all timestamps: `DATETIME2`
+- Use `IF NOT EXISTS` guards for additive DDL
+- Stored procedures and views → `R__{name}.sql` repeatable migrations
+- Data migrations must use `BEGIN TRANSACTION / COMMIT` with verification before commit
+- Never `SELECT *` in migrations
+- `flyway.conf` must NOT be committed — only `flyway.conf.example`
+```
+
+---
+
+### Step 7 — Create READMEs for each repo
+
+**7a.** `/repos/web-api-${input:appName}/README.md`:
+```markdown
+# <App Name> API
+
+<One-line description>
+
+## Structure
+- `src/features/` — business feature modules (routes, service, schema, types)
+- `docs/openapi.yaml` — API contract (contract-first — edit this before adding routes)
+- `postman/` — API test collection and local environment file
+- `helm/` — Kubernetes deployment chart
+
+## Local development
+See `docs/ops/runbook.md` for full setup steps.
+
+**Requires `db-${input:appName}` cloned as a sibling directory** — docker-compose mounts migrations from `../db-${input:appName}/migrations`.
+
+```bash
+cp .env.example .env
+# edit .env
+docker compose up
+```
+```
+
+**7b.** `/repos/web-${input:appName}/README.md`:
 ```markdown
 # <App Name>
 
 <One-line description>
 
-## Repository structure
-- `backend/` — Node.js + Fastify API (TypeScript)
-- `db/` — Flyway SQL migrations (MSSQL)
-- `frontend/` — React + Vite SPA (TypeScript + MUI)
-- `helm/` — Kubernetes deployment (Helm + AKS)
+## Structure
+- `src/pages/` — one directory per page
+- `src/services/` — API service modules (all API calls live here)
+- `public/static-config.json` — Entra auth config (clientId/authority set at deploy)
+- `helm/` — Kubernetes deployment chart
 
 ## Local development
-See [backend/README.md](backend/README.md), [db/README.md](db/README.md), and [frontend/README.md](frontend/README.md). Use `docker-compose.yml` at the repo root to start SQL Server and run Flyway migrations (see `backend/docs/ops/runbook.md` for commands).
+The backend must be running from `web-api-${input:appName}` on port 8080.
+
+```bash
+docker compose up
+```
 ```
 
-### Step 10 — Self-audit
+**7c.** `/repos/db-${input:appName}/README.md`:
+```markdown
+# <App Name> DB
+
+Flyway migration scripts for <App Name>. Consumed by `web-api-${input:appName}` via docker-compose.
+
+## Structure
+- `migrations/` — versioned SQL migrations (`V{major}.{minor}.{patch}__{description}.sql`)
+- `seeds/` — reference data scripts (run manually, not via Flyway)
+- `flyway.conf.example` — copy to `flyway.conf` and fill in credentials for local use
+
+## Local development (standalone)
+```bash
+cp flyway.conf.example flyway.conf
+# edit flyway.conf
+docker compose up
+```
+
+## Adding a migration
+Create a new file in `migrations/` — never edit an existing applied file.
+```
+```
+
+---
+
+### Step 8 — Self-audit
 
 Verify before reporting complete:
 
-1. No hardcoded secrets (Entra clientId/secret, DB passwords, JWT secrets as literal values)
-2. Every API endpoint in the plan has a route file, service stub, and openapi.yaml entry — with all required status codes, parameter schemas, and request body schemas
-3. Every DB table in the plan has a Flyway migration in `db/migrations/`
+1. No hardcoded secrets in any repo (Entra clientId/secret, DB passwords, JWT secrets as literal values)
+2. Every API endpoint in the plan has a route file, service stub, and `docs/openapi.yaml` entry — with all required status codes, parameter schemas, and request body schemas
+3. Every DB table in the plan has a Flyway migration in `db-${input:appName}/migrations/`
 4. Every frontend page in the plan has a `.tsx` file
 5. No `any` types in any TypeScript file
 6. No `console.log` in any production code file
@@ -745,17 +881,21 @@ Verify before reporting complete:
 8. `@fastify/helmet` and `@fastify/rate-limit` registered in `app.ts`
 9. JWT middleware validates `algorithms`, `issuer`, `audience`
 10. CORS configured with env var origins (no wildcards)
-11. Helm values have no leftover placeholder strings except those marked "set at deploy time"
-12. `db/flyway.conf` is NOT present — only `db/flyway.conf.example`
-13. `docker-compose.yml` exists at the repo root with `db`, `db-init`, `flyway`, `backend`, and `frontend` services
-14. `backend/.env.example` exists and contains every environment variable listed in the plan
-15. `.github/copilot-instructions.md` exists with the app-specific structure section and the full embedded standards
-16. `postman/environments/${input:appName}-local.postman_environment.json` exists alongside the collection
-17. `backend/azure-pipelines.yml` and `frontend/azure-pipelines.yml` have no remaining `templateweb` references
-18. Every backend feature has a test stub in `backend/tests/unit/` and every frontend page has one in `frontend/test/unit/`
+11. Helm values have no leftover placeholder strings except those marked "set at deploy time" — applies to BOTH `web-api-${input:appName}/helm/` and `web-${input:appName}/helm/`
+12. `flyway.conf` is NOT present in `db-${input:appName}/` — only `flyway.conf.example`
+13. `web-api-${input:appName}/docker-compose.yml` mounts `../db-${input:appName}/migrations` for Flyway
+14. `db-${input:appName}/docker-compose.yml` mounts `./migrations` (standalone, self-contained)
+15. `web-${input:appName}/docker-compose.yml` contains only the frontend service
+16. `.env.example` exists in `web-api-${input:appName}/` and contains every environment variable in the plan
+17. `azure-pipelines.yml` in both `web-api-${input:appName}/` and `web-${input:appName}/` has no remaining `templateweb` references
+18. `.github/copilot-instructions.md` exists in all three repos with app-specific structure sections
+19. `.devcontainer/devcontainer.json` exists in all three repos
+20. `postman/environments/${input:appName}-local.postman_environment.json` exists in `web-api-${input:appName}/`
+21. Every backend feature has a test stub in `web-api-${input:appName}/tests/unit/`
+22. Every frontend page has a test stub in `web-${input:appName}/test/unit/`
 
 Report any gaps found.
 
-### Step 11 — Output summary
+### Step 9 — Output summary
 
-List all files created, organized by directory. Note any items from the plan not fully implemented and explain why.
+List all files created, organized by repo. Note any items from the plan not fully implemented and explain why.

@@ -1,0 +1,590 @@
+openapi: 3.1.0
+info:
+  title: ExpenseFlow API
+  version: 1.0.0
+  description: REST API for the ExpenseFlow expense management platform.
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      required: [error, message, timestamp, requestId]
+      properties:
+        error: { type: string }
+        message: { type: string }
+        timestamp: { type: string, format: date-time }
+        requestId: { type: string }
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              message: { type: string }
+
+    ExpenseReport:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        periodStart: { type: string, format: date }
+        periodEnd: { type: string, format: date }
+        status:
+          type: string
+          enum: [Draft, Pending, Approved, Rejected]
+        submittedOn: { type: string, format: date-time, nullable: true }
+        createdOn: { type: string, format: date-time }
+        userId: { type: integer }
+
+    ExpenseLineItem:
+      type: object
+      properties:
+        id: { type: integer }
+        reportId: { type: integer }
+        category: { type: string }
+        amount: { type: number }
+        currency: { type: string }
+        spendDate: { type: string, format: date }
+        merchant: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+        receiptId: { type: integer, nullable: true }
+
+    PolicyViolation:
+      type: object
+      properties:
+        lineItemId: { type: integer }
+        category: { type: string }
+        violationType:
+          type: string
+          enum: [MaxAmountPerItem, RequiresReceipt]
+        message: { type: string }
+
+    SubmitResult:
+      type: object
+      properties:
+        submitted: { type: boolean }
+        violations:
+          type: array
+          items: { $ref: '#/components/schemas/PolicyViolation' }
+
+    Receipt:
+      type: object
+      properties:
+        id: { type: integer }
+        lineItemId: { type: integer }
+        blobName: { type: string }
+        contentType: { type: string }
+        uploadedOn: { type: string, format: date-time }
+        sasUrl: { type: string }
+
+    Approval:
+      type: object
+      properties:
+        id: { type: integer }
+        reportId: { type: integer }
+        reportTitle: { type: string }
+        employeeName: { type: string }
+        employeeEmail: { type: string }
+        department: { type: string, nullable: true }
+        periodStart: { type: string, format: date }
+        periodEnd: { type: string, format: date }
+        totalAmount: { type: number }
+        currency: { type: string }
+        status: { type: string }
+        submittedOn: { type: string, format: date-time, nullable: true }
+
+    ApprovalDetail:
+      allOf:
+        - $ref: '#/components/schemas/Approval'
+        - type: object
+          properties:
+            lineItems:
+              type: array
+              items: { $ref: '#/components/schemas/ExpenseLineItem' }
+            decision: { type: string, nullable: true }
+            decidedOn: { type: string, format: date-time, nullable: true }
+            comments: { type: string, nullable: true }
+
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        displayName: { type: string }
+        email: { type: string }
+        departmentId: { type: integer, nullable: true }
+        department: { type: string, nullable: true }
+        role:
+          type: string
+          enum: [employee, manager, finance, admin]
+        isActive: { type: boolean }
+
+    Policy:
+      type: object
+      properties:
+        id: { type: integer }
+        category: { type: string, nullable: true }
+        maxAmountPerItem: { type: number, nullable: true }
+        requiresReceipt: { type: boolean }
+        isActive: { type: boolean }
+
+    SpendByCategory:
+      type: object
+      properties:
+        category: { type: string }
+        totalAmount: { type: number }
+        reportCount: { type: integer }
+
+paths:
+  /ExpenseReports:
+    get:
+      summary: List the caller's expense reports
+      tags: [ExpenseReports]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ExpenseReport' }
+    post:
+      summary: Create a new expense report
+      tags: [ExpenseReports]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, periodStart, periodEnd]
+              properties:
+                title: { type: string }
+                periodStart: { type: string, format: date }
+                periodEnd: { type: string, format: date }
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer }
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /ExpenseReports/{id}:
+    get:
+      summary: Get a single expense report
+      tags: [ExpenseReports]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExpenseReport' }
+        '404':
+          description: Not found
+    delete:
+      summary: Delete a draft expense report
+      tags: [ExpenseReports]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '204': { description: Deleted }
+        '409': { description: Report is not in Draft status }
+
+  /ExpenseReports/{id}/Submit:
+    post:
+      summary: Submit an expense report for approval
+      tags: [ExpenseReports]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Submit result (may contain policy violations)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SubmitResult' }
+
+  /ExpenseReports/{id}/LineItems:
+    get:
+      summary: List line items for a report
+      tags: [ExpenseLineItems]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ExpenseLineItem' }
+    post:
+      summary: Add a line item to a report
+      tags: [ExpenseLineItems]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [category, amount, currency, spendDate]
+              properties:
+                category: { type: string }
+                amount: { type: number }
+                currency: { type: string }
+                spendDate: { type: string, format: date }
+                merchant: { type: string }
+                notes: { type: string }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer }
+
+  /ExpenseReports/{id}/LineItems/{lineItemId}:
+    delete:
+      summary: Remove a line item from a draft report
+      tags: [ExpenseLineItems]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: lineItemId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '204': { description: Deleted }
+
+  /ExpenseReports/{id}/LineItems/{lineItemId}/Receipts:
+    get:
+      summary: List receipts for a line item
+      tags: [Receipts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: lineItemId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Receipt' }
+    post:
+      summary: Upload a receipt
+      tags: [Receipts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: lineItemId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer }
+                  sasUrl: { type: string }
+
+  /Approvals:
+    get:
+      summary: List pending reports awaiting the caller's approval
+      tags: [Approvals]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Approval' }
+
+  /Approvals/{reportId}:
+    get:
+      summary: Get approval detail for a report
+      tags: [Approvals]
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalDetail' }
+
+  /Approvals/{reportId}/Decision:
+    post:
+      summary: Approve or reject an expense report
+      tags: [Approvals]
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision:
+                  type: string
+                  enum: [Approved, Rejected]
+                comments: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reportId: { type: integer }
+                  decision: { type: string }
+
+  /Users:
+    get:
+      summary: List all users in the tenant
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/User' }
+
+  /Users/{id}/Role:
+    put:
+      summary: Update a user's role
+      tags: [Users]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [employee, manager, finance, admin]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer }
+                  role: { type: string }
+
+  /Policies:
+    get:
+      summary: List active expense policies
+      tags: [Policies]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Policy' }
+    post:
+      summary: Create an expense policy
+      tags: [Policies]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [requiresReceipt]
+              properties:
+                category: { type: string }
+                maxAmountPerItem: { type: number }
+                requiresReceipt: { type: boolean }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer }
+
+  /Policies/{id}:
+    put:
+      summary: Update an expense policy
+      tags: [Policies]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                category: { type: string }
+                maxAmountPerItem: { type: number }
+                requiresReceipt: { type: boolean }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer }
+    delete:
+      summary: Deactivate an expense policy
+      tags: [Policies]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '204': { description: Deactivated }
+
+  /Reports/Spend:
+    get:
+      summary: Spend by category for a period (finance/admin only)
+      tags: [Reports]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: periodStart
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: periodEnd
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SpendByCategory' }
+
+  /Reports/Export:
+    get:
+      summary: Export approved expenses as CSV (finance/admin only)
+      tags: [Reports]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: periodStart
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: periodEnd
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: CSV file download
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary

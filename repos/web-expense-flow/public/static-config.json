@@ -1,0 +1,26 @@
+{
+  "FRAMEWORK_UI_AUTH": {
+    "enabled": true
+  },
+  "FRAMEWORK_UI_AUTH_CACHE": {
+    "cacheLocation": "sessionStorage",
+    "storeAuthStateInCookie": false
+  },
+  "FRAMEWORK_UI_AUTH_ENTRA": {
+    "clientId": "",
+    "authority": "",
+    "redirectUri": "http://localhost:3000/auth/callback"
+  },
+  "FRAMEWORK_UI_AUTH_SCOPES": [
+    "api://expense-flow/ExpenseReports.Read",
+    "api://expense-flow/ExpenseReports.Write",
+    "api://expense-flow/Approvals.Write"
+  ],
+  "FRAMEWORK_UI_NAME": "ExpenseFlow",
+  "FRAMEWORK_UI_NAVBAR": [
+    { "label": "My Expenses", "path": "/expenses" },
+    { "label": "Approvals", "path": "/approvals" },
+    { "label": "Finance", "path": "/finance" },
+    { "label": "Admin", "path": "/admin/policies" }
+  ]
+}

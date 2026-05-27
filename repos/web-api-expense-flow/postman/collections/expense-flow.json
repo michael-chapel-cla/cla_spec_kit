@@ -1,0 +1,242 @@
+{
+  "info": {
+    "name": "ExpenseFlow API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "{{baseUrl}}" },
+    { "key": "token", "value": "{{token}}" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health",
+            "auth": { "type": "noauth" }
+          }
+        },
+        {
+          "name": "GET /health/ready",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health/ready",
+            "auth": { "type": "noauth" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "ExpenseReports",
+      "item": [
+        {
+          "name": "List my reports",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/ExpenseReports"
+          }
+        },
+        {
+          "name": "Create report",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/ExpenseReports",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"March 2024 Expenses\",\n  \"periodStart\": \"2024-03-01\",\n  \"periodEnd\": \"2024-03-31\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get report",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/ExpenseReports/{{reportId}}"
+          }
+        },
+        {
+          "name": "Submit report",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/ExpenseReports/{{reportId}}/Submit"
+          }
+        },
+        {
+          "name": "Delete report",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/ExpenseReports/{{reportId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "LineItems",
+      "item": [
+        {
+          "name": "List line items",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/ExpenseReports/{{reportId}}/LineItems"
+          }
+        },
+        {
+          "name": "Add line item",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/ExpenseReports/{{reportId}}/LineItems",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"Travel\",\n  \"amount\": 120.50,\n  \"currency\": \"GBP\",\n  \"spendDate\": \"2024-03-15\",\n  \"merchant\": \"Trainline\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete line item",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/ExpenseReports/{{reportId}}/LineItems/{{lineItemId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Approvals",
+      "item": [
+        {
+          "name": "List pending approvals",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/Approvals"
+          }
+        },
+        {
+          "name": "Get approval detail",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/Approvals/{{reportId}}"
+          }
+        },
+        {
+          "name": "Approve report",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/Approvals/{{reportId}}/Decision",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"Approved\",\n  \"comments\": \"Looks good\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Reject report",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/Approvals/{{reportId}}/Decision",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"Rejected\",\n  \"comments\": \"Missing receipts\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Policies",
+      "item": [
+        {
+          "name": "List policies",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/Policies"
+          }
+        },
+        {
+          "name": "Create policy",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/Policies",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"Travel\",\n  \"maxAmountPerItem\": 200,\n  \"requiresReceipt\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete policy",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/Policies/{{policyId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List users",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/Users"
+          }
+        },
+        {
+          "name": "Update user role",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/v1/Users/{{userId}}/Role",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"manager\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Spend by category",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/Reports/Spend?periodStart=2024-01-01&periodEnd=2024-03-31",
+              "query": [
+                { "key": "periodStart", "value": "2024-01-01" },
+                { "key": "periodEnd", "value": "2024-03-31" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export CSV",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/Reports/Export?periodStart=2024-01-01&periodEnd=2024-03-31",
+              "query": [
+                { "key": "periodStart", "value": "2024-01-01" },
+                { "key": "periodEnd", "value": "2024-03-31" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,477 @@
+parameters:
+  - name: rollback
+    displayName: Rollback Application?
+    type: boolean
+    default: false
+
+trigger:
+- main
+
+resources:
+  repositories:
+  - repository: pipelines-devops
+    type: git
+    name: "pipelines-devops"
+    ref: main
+  - repository: system-test-expense-flow
+    type: git
+    name: 'system-test-expense-flow'
+    ref: main
+
+pool: $(poolName)
+
+variables:
+  # variable groups
+  - group: common
+  - group: common-qa
+  - group: common-servicenow
+  - group: common-dynatrace
+  - group: common-npm
+  - group: system-test-expense-flow
+  - group: veracode
+  - group: web-expense-flow
+  - group: web-expense-flow-qa-accounts
+  - group: web-expense-flow-quality
+  - group: web-expense-flow-security
+  - group: common-expense-flow
+
+  - template: templates/variables/standard.yml@pipelines-devops
+
+  - name: isRollback
+    value: ${{parameters.rollback}}
+
+stages:
+# ==============================================================================
+# development
+# ==============================================================================
+  - stage: development
+    displayName: Development
+    condition: eq(variables.isRollback, false)
+    jobs:
+      - job: processVersion
+        displayName: Process Version
+        steps:
+          - template: templates/steps/checkout.yml@pipelines-devops
+          - template: templates/debug/buildVariables.yml@pipelines-devops
+          - template: templates/debug/templateVariables.yml@pipelines-devops
+            parameters:
+              imageName: $(imageName)
+              isMain: $(isMain)
+              isRollback: $(isRollback)
+          - template: templates/steps/checkVersionIncrement.yml@pipelines-devops
+            parameters:
+              versionCompareBranch: "main"
+          - template: templates/steps/setVersion.yml@pipelines-devops
+          - ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
+            - template: templates/steps/servicenow-configRequest.yml@pipelines-devops
+              parameters:
+                containerRegistryService: $(containerRegistryService)
+                containerRegistryHost:    $(containerRegistryHost)
+                projectName:              $(System.TeamProject)
+                commitHash:               $(Build.SourceVersion)
+                prNumber:                 $(System.PullRequest.PullRequestId)
+                repository:               $(Build.Repository.Name)
+                requestorEmail:           $(Build.RequestedForEmail)
+                snClientId:               $(snClientIdProd)
+                snClientSecret:           $(snClientSecretProd)
+                snPassword:               $(snPasswordProd)
+                snUsername:               $(snUsernameProd)
+                systemToken:              $(System.AccessToken)
+
+      - job: testDevelopment
+        displayName: Execute Development Tests
+        dependsOn: processVersion
+        variables:
+          imageTag: $[dependencies.processVersion.outputs['setVersion.imageTagVersion']]
+          runIntegrationTest: 'False'
+        steps:
+          - template: templates/steps/npmTokenRetriever.yml@pipelines-devops
+          - template: templates/steps/checkout.yml@pipelines-devops
+          - template: templates/jobs/testDevelopment.yml@pipelines-devops
+            parameters:
+              containerRegistryService: $(containerRegistryService)
+              imageName:                $(imageName)
+              imageTag:                 $(imageTag)
+              azTenant:                 $(azTenant)
+              codeCovClientId:          $(codeCovClientId)
+              codeCovClientSecret:      $(codeCovClientSecret)
+              codeCovDriveId:           $(codeCovDriveId)
+              codeCovDriveItemId:       $(codeCovDriveItemId)
+              codeCovTableName:         $(codeCovTableName)
+              envVariables:
+                NPM_TOKEN: $(npmTokenRetriever.encoded_token)
+
+      - job: build
+        displayName: Build and Push Solution
+        dependsOn:
+          - processVersion
+          - testDevelopment
+        condition: and(succeeded(), eq(variables.isMain, true))
+        variables:
+          imageTag: $[dependencies.processVersion.outputs['setVersion.imageTagVersion']]
+        steps:
+          - template: templates/steps/npmTokenRetriever.yml@pipelines-devops
+          - task: Docker@2
+            displayName: Login to ACR
+            inputs:
+              command: login
+              containerRegistry: $(containerRegistryService)
+          - task: Docker@2
+            displayName: Build DEV Image
+            inputs:
+              command: build
+              repository: $(imageName)
+              arguments: >
+                --build-arg REACT_APP_VERSION=$(imageTag)
+                --build-arg REACT_APP_API_TEMPLATEWEB_BASE=$(devApiHost)
+                --build-arg REACT_APP_API_DAL_BASE=$(devApiDalBaseHost)
+                --build-arg REACT_APP_AZURE_AD_AUTHORITY=$(devAppAuthority)
+                --build-arg REACT_APP_AZURE_AD_CLIENT_ID=$(devAppClientId)
+                --build-arg REACT_APP_API_TEMPLATEWEB_BASE_ID_URI=$(devApiAppId)
+                --build-arg REACT_APP_API_DAL_BASE_ID_URI=$(devApiDalBaseAppId)
+                --build-arg REACT_APP_APPINSIGHTS_ROLENAME=$(appInsightsRole)
+                --build-arg APPLICATIONINSIGHTS_CONNECTION_STRING=$(devAppInsightsConnectionString)
+                --build-arg DT_AGENTACTIVE=$(dynatraceAgentActive)
+                --build-arg DT_TAGS=$(devDynatraceTags)
+                --build-arg DT_CUSTOM_PROP=$(devDynatraceProps)
+                --build-arg DT_API_TOKEN=$(dtApiToken)
+                --build-arg DT_ENDPOINT=$(dtEndpoint)
+                --build-arg REACT_APP_MUI_X_PRO_KEY=$(licenseKeyMUIXPro)
+                --build-arg NPM_TOKEN=$(npmTokenRetriever.encoded_token)
+              tags: |
+                $(imageTag).dev
+          - task: Docker@2
+            displayName: Build QA Image
+            inputs:
+              command: build
+              repository: $(imageName)
+              arguments: >
+                --build-arg REACT_APP_VERSION=$(imageTag)
+                --build-arg REACT_APP_API_TEMPLATEWEB_BASE=$(qaApiHost)
+                --build-arg REACT_APP_API_DAL_BASE=$(qaApiDalBaseHost)
+                --build-arg REACT_APP_AZURE_AD_AUTHORITY=$(qaAppAuthority)
+                --build-arg REACT_APP_AZURE_AD_CLIENT_ID=$(qaAppClientId)
+                --build-arg REACT_APP_API_TEMPLATEWEB_BASE_ID_URI=$(qaApiAppId)
+                --build-arg REACT_APP_API_DAL_BASE_ID_URI=$(qaApiDalBaseAppId)
+                --build-arg REACT_APP_APPINSIGHTS_ROLENAME=$(appInsightsRole)
+                --build-arg APPLICATIONINSIGHTS_CONNECTION_STRING=$(qaAppInsightsConnectionString)
+                --build-arg DT_AGENTACTIVE=$(dynatraceAgentActive)
+                --build-arg DT_TAGS=$(qaDynatraceTags)
+                --build-arg DT_CUSTOM_PROP=$(qaDynatraceProps)
+                --build-arg DT_API_TOKEN=$(dtApiToken)
+                --build-arg DT_ENDPOINT=$(dtEndpoint)
+                --build-arg REACT_APP_MUI_X_PRO_KEY=$(licenseKeyMUIXPro)
+                --build-arg NPM_TOKEN=$(npmTokenRetriever.encoded_token)
+              tags: |
+                $(imageTag).qa
+          - task: Docker@2
+            displayName: Build UAT Image
+            inputs:
+              command: build
+              repository: $(imageName)
+              arguments: >
+                --build-arg REACT_APP_VERSION=$(imageTag)
+                --build-arg REACT_APP_API_TEMPLATEWEB_BASE=$(uatApiHost)
+                --build-arg REACT_APP_API_DAL_BASE=$(uatApiDalBaseHost)
+                --build-arg REACT_APP_AZURE_AD_AUTHORITY=$(uatAppAuthority)
+                --build-arg REACT_APP_AZURE_AD_CLIENT_ID=$(uatAppClientId)
+                --build-arg REACT_APP_API_TEMPLATEWEB_BASE_ID_URI=$(uatApiAppId)
+                --build-arg REACT_APP_API_DAL_BASE_ID_URI=$(uatApiDalBaseAppId)
+                --build-arg REACT_APP_APPINSIGHTS_ROLENAME=$(appInsightsRole)
+                --build-arg APPLICATIONINSIGHTS_CONNECTION_STRING=$(uatAppInsightsConnectionString)
+                --build-arg DT_AGENTACTIVE=$(dynatraceAgentActive)
+                --build-arg DT_TAGS=$(uatDynatraceTags)
+                --build-arg DT_CUSTOM_PROP=$(uatDynatraceProps)
+                --build-arg DT_API_TOKEN=$(dtApiToken)
+                --build-arg DT_ENDPOINT=$(dtEndpoint)
+                --build-arg REACT_APP_MUI_X_PRO_KEY=$(licenseKeyMUIXPro)
+                --build-arg NPM_TOKEN=$(npmTokenRetriever.encoded_token)
+              tags: |
+                $(imageTag).uat
+          - task: Docker@2
+            displayName: Build PROD Image
+            inputs:
+              command: build
+              repository: $(imageName)
+              arguments: >
+                --build-arg REACT_APP_VERSION=$(imageTag)
+                --build-arg REACT_APP_API_TEMPLATEWEB_BASE=$(prodApiHost)
+                --build-arg REACT_APP_API_DAL_BASE=$(prodApiDalBaseHost)
+                --build-arg REACT_APP_AZURE_AD_AUTHORITY=$(prodAppAuthority)
+                --build-arg REACT_APP_AZURE_AD_CLIENT_ID=$(prodAppClientId)
+                --build-arg REACT_APP_API_TEMPLATEWEB_BASE_ID_URI=$(prodApiAppId)
+                --build-arg REACT_APP_API_DAL_BASE_ID_URI=$(prodApiDalBaseAppId)
+                --build-arg REACT_APP_APPINSIGHTS_ROLENAME=$(appInsightsRole)
+                --build-arg APPLICATIONINSIGHTS_CONNECTION_STRING=$(prodAppInsightsConnectionString)
+                --build-arg DT_AGENTACTIVE=$(dynatraceAgentActive)
+                --build-arg DT_TAGS=$(prodDynatraceTags)
+                --build-arg DT_CUSTOM_PROP=$(prodDynatraceProps)
+                --build-arg DT_API_TOKEN=$(dtApiToken)
+                --build-arg DT_ENDPOINT=$(dtEndpoint)
+                --build-arg REACT_APP_MUI_X_PRO_KEY=$(licenseKeyMUIXPro)
+                --build-arg NPM_TOKEN=$(npmTokenRetriever.encoded_token)
+              tags: |
+                latest
+                $(imageTag)
+          - task: Docker@2
+            displayName: Push Images
+            inputs:
+              command: push
+              repository: $(imageName)
+              tags: |
+                latest
+                $(imageTag)
+                $(imageTag).dev
+                $(imageTag).qa
+                $(imageTag).uat
+              containerRegistry: $(containerRegistryService)
+
+      - deployment: deployDEV
+        displayName: Deploy to DEV
+        dependsOn:
+          - processVersion
+          - build
+        condition: and(succeeded(), eq(variables.isMain, true))
+        variables:
+          imageTag: $[dependencies.processVersion.outputs['setVersion.imageTagVersion']]
+          targetEnv: "DEV"
+        environment: expense-flow-dev
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - template: templates/jobs/azureAppService-deploy.yml@pipelines-devops
+                  parameters:
+                    targetEnv:                $(targetEnv)
+                    containerRegistryHost:    $(containerRegistryHost)
+                    imageName:                $(imageName)
+                    imageTag:                 $(imageTag).dev
+                    serviceConnection:        $(devService)
+                    webApp:                   $(devWebApp)
+                    webAppFailover:           $(devWebAppFailover)
+
+# ==============================================================================
+# security
+# ==============================================================================
+  - template: templates/stages/security/jazz.yml@pipelines-devops
+    parameters:
+      pipelinevariables:
+        _1: common
+        _2: veracode
+        _3: web-expense-flow-security
+        _4: web-expense-flow-control-flow
+      containerRegistryServiceConnection: $(containerRegistryService)
+      analysisServiceConnection:          $(analysisService)
+      appServiceConnection:               $(devServiceConn)
+      containerNameExtension:             "-app-1"
+      isPreBuild:                         "True"
+      buildAndStartImage:                 "True"
+      isWebApp:                           "True"
+
+# ==============================================================================
+# quality assurance
+# ==============================================================================
+  - stage: qualityAssurance
+    displayName: Quality Assurance
+    dependsOn: development
+    condition: and(succeeded(), eq(variables.isMain, true), eq(variables.isRollback, false))
+    variables:
+      imageTag: $[stageDependencies.development.processVersion.outputs['setVersion.imageTagVersion']]
+      targetEnv: "QA"
+    jobs:
+      - deployment: deployQA
+        displayName: Deploy to QA
+        environment: expense-flow-qa
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - template: templates/jobs/azureAppService-deploy.yml@pipelines-devops
+                  parameters:
+                    targetEnv:                $(targetEnv)
+                    containerRegistryHost:    $(containerRegistryHost)
+                    imageName:                $(imageName)
+                    imageTag:                 $(imageTag).qa
+                    serviceConnection:        $(qaService)
+                    webApp:                   $(qaWebApp)
+                    webAppFailover:           $(qaWebAppFailover)
+
+      - job: testSystem
+        displayName: Execute System Tests
+        dependsOn: deployQA
+        condition:
+            and
+            (
+              eq(variables['runSystemTests'], 'True'),
+              in(dependencies.deployQA.result, 'Succeeded', 'Skipped')
+            )
+        steps:
+          - template: templates/steps/checkout.yml@pipelines-devops
+            parameters:
+              repository: 'system-test-expense-flow'
+          - template: templates/jobs/testSystem.yml@pipelines-devops
+            parameters:
+              containerRegistryService: $(containerRegistryService)
+              moduleName:               $(systemTestImageName)
+              healthCheckUrl:           'http://localhost:4444'
+              runScreenshotsPublishing: "True"
+              runCommand:               $(systemTestRunCommand)
+              envVariables:
+                SITE_URL:                    $(qaWebAppUrl)
+                SELENIUM_HUB_URL:            'http://hub:4444'
+                AUTH_ADMINISTRATOR_USERNAME: $(Administrator-UserName)
+                AUTH_ADMINISTRATOR_PASSWORD: $(Administrator-Password)
+                AUTH_EMPLOYEE_USERNAME:      $(Employee-UserName)
+                AUTH_EMPLOYEE_PASSWORD:      $(Employee-Password)
+                AUTH_CLIENT_USERNAME:        $(Client-UserName)
+                AUTH_CLIENT_PASSWORD:        $(Client-Password)
+                DEVICE_CODE_CLIENT_ID:       $(qaDeviceCodeAppID)
+                DEVICE_CODE_AUTHORITY:       $(qaDeviceCodeAuthority)
+                CAP_W3C_BROWSER_NAME:        edge
+                CAP_W3C_BROWSER_VERSION:     latest
+                CAP_W3C_PLATFORM_NAME:       'Windows 10'
+                CAP_SL_BUILD:                $(imageName):$(imageTag)-$(Build.Reason)-$(Build.BuildNumber)
+                CONTAINER_REGISTRY_HOST:     $(containerRegistryHost)
+                SYSTEM_TEST_IMAGE:           $(systemTestImageName)
+                WEB_BASE_URL:                $(web_base_url)
+                TEMPLATE_WEB_PREFIX:         $(web_base_scope_prefix)
+
+
+# ==============================================================================
+# user acceptance
+# ==============================================================================
+  - stage: userAcceptance
+    displayName: User Acceptance
+    dependsOn:
+      - development
+      - qualityAssurance
+    condition: and(succeeded(), eq(variables.isMain, true), eq(variables.isRollback, false))
+    variables:
+      imageTag: $[stageDependencies.development.processVersion.outputs['setVersion.imageTagVersion']]
+      targetEnv: "UAT"
+    jobs:
+      - deployment: deployUAT
+        displayName: Deploy to UAT
+        environment: expense-flow-uat
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - template: templates/jobs/azureAppService-deploy.yml@pipelines-devops
+                  parameters:
+                    targetEnv:                $(targetEnv)
+                    containerRegistryHost:    $(containerRegistryHost)
+                    imageName:                $(imageName)
+                    imageTag:                 $(imageTag).uat
+                    serviceConnection:        $(uatService)
+                    webApp:                   $(uatWebApp)
+                    webAppFailover:           $(uatWebAppFailover)
+
+      - job: testUAT
+        displayName: Execute Acceptance Tests
+        dependsOn: deployUAT
+        pool: server
+        timeoutInMinutes: 4320
+        steps:
+          - template: templates/steps/manualConfirmation.yml@pipelines-devops
+            parameters:
+              taskDisplayName:            'Execute Acceptance Tests'
+              notificationMailbox:        $(uatNotificationMailbox)
+              notificationInstructions:   'Please execute acceptance tests and report results.'
+              timeoutAction:              'reject'
+
+
+# ==============================================================================
+# production
+# ==============================================================================
+  - stage: production
+    displayName: Production
+    dependsOn:
+      - development
+      - qualityAssurance
+      - security
+    condition: and(
+          in(dependencies.development.result, 'Succeeded', 'Skipped'),
+          in(dependencies.qualityAssurance.result, 'Succeeded', 'Skipped'),
+          in(dependencies.security.result, 'Succeeded', 'Skipped'),
+          eq(variables.isMain, true)
+        )
+    variables:
+      imageTag: $[stageDependencies.development.processVersion.outputs['setVersion.imageTagVersion']]
+      semanticVersion: $[stageDependencies.development.processVersion.outputs['setVersion.semanticVersion']]
+    jobs:
+      - deployment: deployProduction
+        displayName: Deploy to Production
+        condition: eq(variables.isRollback, false)
+        environment: expense-flow-prod
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - template: templates/jobs/azureAppService-prodDeploy.yml@pipelines-devops
+                  parameters:
+                    targetEnv:                $(targetEnv)
+                    containerRegistryHost:    $(containerRegistryHost)
+                    imageName:                $(imageName)
+                    imageTag:                 $(imageTag)
+                    serviceConnection:        $(prodService)
+                    resourceGroup:            $(prodResourceGroup)
+                    webApp:                   $(prodWebApp)
+                    stagingSlot:              $(prodStagingSlot)
+                    webAppFailover:           $(prodWebAppFailover)
+
+      - job: tagging
+        displayName: Tag Commit
+        dependsOn:
+          - deployProduction
+        condition: and(succeeded(), eq(variables.isMain, true), eq(variables.isRollback, false))
+        steps:
+          - template: templates/jobs/tagging.yml@pipelines-devops
+            parameters:
+              imageTag:         $(imageTag)
+              semanticVersion:  $(semanticVersion)
+              project:          $(System.TeamProject)
+              repository:       $(Build.Repository.Name)
+              systemToken:      $(System.AccessToken)
+              name:             $(Build.RequestedFor)
+              email:            $(Build.RequestedForEmail)
+
+      - job: submitChangeRequest
+        displayName: Submit Change Request
+        condition: eq(variables.isRollback, false)
+        dependsOn:
+          - deployProduction
+        steps:
+          - template: templates/jobs/servicenow-changeRequest.yml@pipelines-devops
+            parameters:
+              commitId:                 $(Build.SourceVersion)
+              containerRegistryService: $(containerRegistryService)
+              containerRegistryHost:    $(containerRegistryHost)
+              adminDevGroup:            $(adminDevGroup)
+              adminLeadDev:             $(adminLeadDev)
+              adminProductOwner:        $(adminProductOwner)
+              programName:              $(adminProgramName)
+              projectName:              $(System.TeamProject)
+              repoId:                   $(Build.DefinitionName)
+              snClientId:               $(snClientIdProd)
+              snClientSecret:           $(snClientSecretProd)
+              snPassword:               $(snPasswordProd)
+              snUsername:               $(snUsernameProd)
+              adminSolutionName:        $(adminSolutionName)
+              systemToken:              $(System.AccessToken)
+ 
+      - job: productionRollback
+        displayName: Production Rollback
+        condition: eq(variables.isRollback, true)
+        steps:
+          - template: templates/jobs/azureAppService-rollback.yml@pipelines-devops
+            parameters:
+              email:              $(Build.RequestedForEmail)
+              name:               $(Build.RequestedFor)
+              project:            $(System.TeamProject)
+              repository:         $(Build.Repository.Name)
+              resourceGroup:      $(prodResourceGroup)
+              serviceConnection:  $(prodService)
+              stagingSlot:        $(prodStagingSlot)
+              systemToken:        $(System.AccessToken)
+              webApp:             $(prodWebApp)

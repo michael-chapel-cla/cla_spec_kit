@@ -1,0 +1,25 @@
+app:
+  environment: 'prd'
+
+replicaCount: 3
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+resources:
+  limits:
+    cpu: 150m
+    memory: 350Mi
+  requests:
+    cpu: 100m
+    memory: 300Mi
+
+istio:
+  hosts: ["expense-flow.claconnect.com"]
+
+serviceAccount:
+  azureWorkloadIdentityClientId: '<prd-expense-flow-web-uami-client-id>'

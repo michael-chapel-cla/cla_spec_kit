@@ -1,0 +1,78 @@
+app:
+  name: web-api-expense-flow
+  version: 1.0.0
+
+image:
+  registry: cladevops.azurecr.io
+  repository: helm/web-api-expense-flow
+  tag: latest
+
+container:
+  port: 8080
+  readinessProbe:
+    httpGet:
+      path: /health/ready
+      port: 8080
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 60
+    timeoutSeconds: 30
+    failureThreshold: 10
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+  name: web-api-expense-flow
+
+ingress:
+  enabled: false
+
+istio:
+  enabled: true
+  hosts: ["*"]
+  gateways: ["web-api-expense-flow-ingress-gateway"]
+  pathPrefix: "/api"
+  timeout: 30s
+  gateway:
+    enabled: false
+  authorizationPolicy:
+    enabled: true
+    name: allow-cross-ns
+    namespace: expense-flow
+    allowedServiceAccounts:
+      - namespace: istio-ingress
+        name: istio-ingress
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: "web-api-expense-flow"
+
+configMap:
+  enabled: false
+
+secret:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
+
+networkPolicy:
+  enabled: false
+
+healthcheck:
+  enabled: false
+
+monitoring:
+  serviceMonitor:
+    enabled: false
+
+volumeMounts: []
+volumes: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

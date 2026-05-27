@@ -1,0 +1,2 @@
+docker-compose exec -T app npm run lint
+

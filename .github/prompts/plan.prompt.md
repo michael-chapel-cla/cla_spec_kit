@@ -19,27 +19,41 @@ Apply these rules when designing the architecture and specifying API endpoints, 
 
 ### Architecture Constraints (Non-Negotiable)
 
-**Backend:**
+**Three separate repositories per application:**
+- `web-api-${input:appName}` — Fastify API (backend), cloned to `/repos/web-api-${input:appName}/`
+- `web-${input:appName}` — React SPA (frontend), cloned to `/repos/web-${input:appName}/`
+- `db-${input:appName}` — Flyway DB migrations, cloned to `/repos/db-${input:appName}/`
+
+These repos are designed to be cloned as siblings in the same parent directory. The API repo's docker-compose mounts `../db-${input:appName}/migrations` for Flyway.
+
+**API repo (`web-api-${input:appName}`):**
 - Code organized by business feature: `src/features/<feature>/v1/` — never by technical layer
 - All routes versioned: `/api/v{n}/ResourceName`
-- Resource names: PascalCase plural nouns, no verbs, no hyphens/underscores (e.g., `/api/v1/UserProfiles`)
+- Resource names: PascalCase plural nouns, no verbs, no hyphens/underscores
 - Contract-first: `docs/openapi.yaml` exists before any route code is written
-- Postman collection in `postman/collections/` with test scripts
+- Postman collection in `postman/collections/` + environment in `postman/environments/`
 - Health endpoints: `GET /health`, `GET /health/ready` (unprotected)
+- Own Helm chart at `helm/`
+- Own devcontainer at `.devcontainer/`
+- Own `docker-compose.yml` (references `../db-${input:appName}/migrations`)
 
-**Database:**
-- Lives at `/repos/${input:appName}/db/` (sibling to `backend/` — not inside it)
-- Flyway migrations in `db/migrations/`
+**DB repo (`db-${input:appName}`):**
+- Flyway migrations at `migrations/` (root of repo, not in a subdirectory)
 - Naming: `V{major}.{minor}.{patch}__{description}.sql`
 - Every table requires: `Id INT IDENTITY(1,1)` PK, `CreatedOn DATETIME2 DEFAULT SYSUTCDATETIME()`, `ModifiedOn DATETIME2 NULL`
 - All strings: `NVARCHAR`, all booleans: `BIT`, all timestamps: `DATETIME2`
 - Stored procedures/views: `R__{name}.sql` repeatable migrations
+- Own `docker-compose.yml` (standalone, self-contained — no external volume dependencies)
+- Own devcontainer at `.devcontainer/`
 
-**Frontend:**
+**Frontend repo (`web-${input:appName}`):**
 - Service layer required: API calls in `src/services/<feature>Api.ts`, never in components
 - All pages use MUI components
 - Protected routes via `loader: requireAuth()` (from `framework-react-core`)
 - Auth config: Entra `clientId` and `authority` in `public/static-config.json` — never hardcoded
+- Own Helm chart at `helm/`
+- Own devcontainer at `.devcontainer/`
+- Own `docker-compose.yml` (frontend only — backend runs separately)
 
 **Security requirements for every API:**
 - JWT validation: `algorithms: ['RS256']`, `issuer` from env, `audience` from env
@@ -88,14 +102,20 @@ Create `/plans/${input:appName}/PLAN.md` with ALL of the following sections:
 
 #### Overview
 - App name and one-sentence description
-- Repo name (kebab-case)
-- Target path: `/repos/${input:appName}/`
+- Three repo names:
+  - API: `web-api-${input:appName}`
+  - Frontend: `web-${input:appName}`
+  - DB: `db-${input:appName}`
+- Output paths in spec kit:
+  - `/repos/web-api-${input:appName}/`
+  - `/repos/web-${input:appName}/`
+  - `/repos/db-${input:appName}/`
 
 ---
 
 #### Architecture Decisions
 Document key technical choices:
-- Auth strategy: Entra tenant/app registration approach, which JWT validation library, how RBAC is implemented
+- Auth strategy: Entra tenant/app registration approach, JWT validation library, how RBAC is implemented
 - Database: schema name, multi-tenancy strategy if applicable, index strategy
 - API structure: feature groupings, which endpoints share auth scopes, versioning approach
 - State management / caching (Redis usage if any)
@@ -106,60 +126,74 @@ Document key technical choices:
 
 #### Directory Structure
 
-Show the COMPLETE file tree for `/repos/${input:appName}/`. Expand every feature folder and page:
+Show the COMPLETE file tree for all three repos. Expand every feature folder, page, and migration file:
 
 ```
-/repos/${input:appName}/
-├── backend/
-│   ├── src/
-│   │   ├── features/
-│   │   │   └── <feature>/
-│   │   │       └── v1/
-│   │   │           ├── <feature>.routes.ts
-│   │   │           ├── <feature>.service.ts
-│   │   │           ├── <feature>.schema.ts
-│   │   │           └── <feature>.types.ts
-│   │   └── shared/
-│   │       ├── auth/
-│   │       │   ├── auth.middleware.ts
-│   │       │   └── auth.types.ts
-│   │       ├── db/
-│   │       │   ├── db.client.ts
-│   │       │   └── db.types.ts
-│   │       └── errors/
-│   │           └── error.handler.ts
-│   ├── docs/
-│   │   ├── openapi.yaml
-│   │   └── ops/runbook.md
-│   ├── postman/collections/<app-name>.json
-│   └── tests/
-│       ├── unit/
-│       └── integration/
-├── db/
-│   ├── migrations/
-│   │   ├── V1.0.0__create_schema.sql
-│   │   └── V1.0.1__create_<tables>.sql
-│   ├── seeds/
-│   ├── flyway.conf.example
-│   └── README.md
-├── frontend/
-│   ├── src/
-│   │   ├── pages/
-│   │   │   └── <PageName>/<PageName>.tsx
-│   │   ├── components/
-│   │   ├── services/
-│   │   │   └── <feature>Api.ts
-│   │   ├── types/
-│   │   │   └── <feature>.types.ts
-│   │   └── router.tsx
-│   └── public/static-config.json
-└── helm/
-    ├── Chart.yaml
-    ├── values.yaml
-    ├── values-dev.yaml
-    ├── values-qa.yaml
-    ├── values-uat.yaml
-    └── values-prd.yaml
+/repos/web-api-${input:appName}/          ← API repo root
+├── src/
+│   ├── features/
+│   │   └── <feature>/
+│   │       └── v1/
+│   │           ├── <feature>.routes.ts
+│   │           ├── <feature>.service.ts
+│   │           ├── <feature>.schema.ts
+│   │           └── <feature>.types.ts
+│   └── shared/
+│       ├── auth/
+│       │   ├── auth.middleware.ts
+│       │   └── auth.types.ts
+│       ├── db/
+│       │   ├── db.client.ts
+│       │   └── db.types.ts
+│       └── errors/
+│           └── error.handler.ts
+├── docs/
+│   ├── openapi.yaml
+│   └── ops/runbook.md
+├── postman/
+│   ├── collections/<app-name>.json
+│   └── environments/<app-name>-local.postman_environment.json
+├── tests/
+│   ├── unit/
+│   └── integration/
+├── helm/
+│   ├── Chart.yaml
+│   ├── values.yaml
+│   └── values-{env}.yaml
+├── .devcontainer/devcontainer.json
+├── .env.example
+├── docker-compose.yml
+└── azure-pipelines.yml
+
+/repos/db-${input:appName}/               ← DB repo root
+├── migrations/
+│   ├── V1.0.0__create_schema.sql
+│   └── V1.0.1__create_<tables>.sql
+├── seeds/
+├── .devcontainer/devcontainer.json
+├── docker-compose.yml
+├── flyway.conf.example
+└── README.md
+
+/repos/web-${input:appName}/              ← Frontend repo root
+├── src/
+│   ├── pages/
+│   │   └── <PageName>/<PageName>.tsx
+│   ├── components/
+│   ├── services/
+│   │   └── <feature>Api.ts
+│   ├── types/
+│   │   └── <feature>.types.ts
+│   └── router.tsx
+├── public/static-config.json
+├── test/unit/
+├── helm/
+│   ├── Chart.yaml
+│   ├── values.yaml
+│   └── values-{env}.yaml
+├── .devcontainer/devcontainer.json
+├── docker-compose.yml
+└── azure-pipelines.yml
 ```
 
 ---
@@ -174,7 +208,7 @@ List EVERY endpoint. For each:
 - Response shape: top-level fields and types
 - Status codes returned: list ALL expected codes (not just 200)
 
-Group by feature module. Include the two health endpoints (`GET /health`, `GET /health/ready`) in their own section — unprotected, no scopes.
+Group by feature module. Include `GET /health` and `GET /health/ready` — unprotected, no scopes.
 
 ---
 
@@ -193,7 +227,7 @@ CreatedOn  DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
 ModifiedOn DATETIME2 NULL
 ```
 
-Also list the exact Flyway migration files:
+Also list the exact Flyway migration files (these live in `db-${input:appName}/migrations/`):
 - `V1.0.0__create_schema.sql` — schema creation
 - `V1.0.1__create_<logical_group>.sql` — one file per table or related group
 - `V1.0.2__seed_<data>.sql` — if reference/lookup data needed
@@ -214,26 +248,19 @@ Also list shared components to create in `src/components/`.
 
 ---
 
-#### Helm Configuration Changes
+#### Helm Configuration
 
-List every value that changes from the template defaults:
+Two Helm charts — one per non-DB repo. For each:
 
-**Chart.yaml:**
-- `name`: app's kebab-case name
-- `description`: app description
+**`web-api-${input:appName}/helm/`:**
+- `Chart.yaml`: `name: web-api-${input:appName}`, `description`
+- `values.yaml`: `app.name`, `image.repository`, `istio.pathPrefix` (e.g., `/api`)
+- `values-{env}.yaml`: `istio.hosts` per environment; `azureWorkloadIdentityClientId: ""` placeholder
 
-**values.yaml:**
-- `app.name`
-- `image.repository`
-- `istio.pathPrefix`: `/<app-name>`
-- `serviceAccount.name`
-
-**values-dev.yaml:**
-- `istio.hosts`: `["<app-name>.dev.<domain>"]`
-- `serviceAccount.azureWorkloadIdentityClientId`: `""` ← placeholder, set at deploy time
-
-**values-qa.yaml, values-uat.yaml, values-prd.yaml:**
-- `istio.hosts` with appropriate environment hostname patterns
+**`web-${input:appName}/helm/`:**
+- `Chart.yaml`: `name: web-${input:appName}`, `description`
+- `values.yaml`: `app.name`, `image.repository`, `istio.pathPrefix` (e.g., `/`)
+- `values-{env}.yaml`: `istio.hosts` per environment; `azureWorkloadIdentityClientId: ""` placeholder
 
 ---
 
@@ -242,17 +269,17 @@ List every value that changes from the template defaults:
 - App registration name suggestion
 - Required API scopes (used in `FRAMEWORK_UI_AUTH_SCOPES` and JWT validation)
 - Frontend redirect URI: `http://localhost:3000/auth/callback` (dev)
-- Backend: `ENTRA_AUDIENCE` value (usually the app registration client ID or a custom URI)
-- Backend: `ENTRA_ISSUER` value (the Entra tenant token endpoint)
+- Backend: `ENTRA_AUDIENCE` value
+- Backend: `ENTRA_ISSUER` value
 
 ---
 
 #### Environment Variables
 
-List ALL environment variables required by the backend:
+List ALL environment variables required by the API backend:
 | Variable | Description | Example | Required |
 |---|---|---|---|
-| `DB_SERVER` | MSSQL server hostname | `mssql_server` | yes |
+| `DB_SERVER` | MSSQL server hostname | `localhost` | yes |
 | `DB_DATABASE` | Database name | `AppDb` | yes |
 | `DB_USER` | DB username | `sa` | yes |
 | `DB_PASSWORD` | DB password | — | yes |
@@ -268,7 +295,7 @@ List ALL environment variables required by the backend:
 
 **Phase 1 — MVP** (aligned with `MVP_BUILD_SPEC.md`):
 Numbered list of SPECIFIC tasks:
-- "Create `V1.0.0__create_schema.sql` in `db/migrations/`"
+- "Create `V1.0.0__create_schema.sql` in `db-${input:appName}/migrations/`"
 - "Create `dbo.Users` table migration (V1.0.1)"
 - "Implement `GET /api/v1/Users` route + service + schema + openapi entry"
 - (etc. — every task is concrete and actionable)
@@ -283,34 +310,45 @@ Infrastructure, performance, advanced features.
 
 #### Local Development Setup
 
-Step-by-step commands for a developer starting from scratch:
+Step-by-step commands for a developer starting from scratch. All three repos are assumed to be cloned as siblings in the same parent directory.
 
 ```bash
-# 1. Install backend deps
-cd backend && npm install
+# 1. Clone all three repos as siblings
+git clone <api-repo-url>      web-api-${input:appName}
+git clone <frontend-repo-url> web-${input:appName}
+git clone <db-repo-url>       db-${input:appName}
 
-# 2. Install frontend deps
-cd ../frontend && npm install
+# 2. Install API deps
+cd web-api-${input:appName} && npm install
 
-# 3. Create environment file
-cp backend/.env.example backend/.env
-# Edit backend/.env — fill in DB_*, ENTRA_*, CORS_ORIGINS
+# 3. Install frontend deps
+cd ../web-${input:appName} && npm install
 
-# 4. Start SQL Server
-docker compose --env-file backend/.env up -d db
+# 4. Create the API env file
+cd ../web-api-${input:appName}
+cp .env.example .env
+# Edit .env — fill in DB_*, ENTRA_*, CORS_ORIGINS
 
-# 5. Create database and run migrations
-docker compose --env-file backend/.env run --rm db-init
-docker compose --env-file backend/.env run --rm flyway migrate
+# 5. Start SQL Server, create the database, and run migrations
+#    (docker-compose in web-api reads ../db-${input:appName}/migrations)
+docker compose up -d db
+docker compose run --rm db-init
+docker compose run --rm flyway
 
 # 6. Configure frontend auth (local dev only)
-# Edit frontend/public/static-config.json — fill in ENTRA clientId and authority
+# Edit web-${input:appName}/public/static-config.json — fill in ENTRA clientId and authority
 
-# 7. Start backend
-cd backend && npm run dev   # starts on port 8080
+# 7. Start the API backend
+#    (from web-api-${input:appName}/)
+docker compose up backend
 
-# 8. Start frontend
-cd frontend && npm run dev  # starts on port 3000
+# OR: run backend directly for faster dev loop
+npm run dev   # starts on port 8080
+
+# 8. Start the frontend
+cd ../web-${input:appName}
+docker compose up
+# OR: npm run dev  # starts on port 3000
 ```
 
 ---
