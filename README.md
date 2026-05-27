@@ -12,11 +12,14 @@ You write an idea  →  /design  →  /plan  →  /create  →  /validate  →  
 
 | Stage | Command | Input | Output |
 |---|---|---|---|
-| 1 | `/design` | `ideas/<app-name>/ideas.md` (+ optional images) | 16 requirement documents in `requirements/<app-name>/` |
+| 0 (optional) | `/audit-idea` | `ideas/<app-name>/ideas.md` | Pre-flight report: READY / NEEDS WORK / BLOCKED verdict before running `/design` |
+| 1 | `/design` | `ideas/<app-name>/ideas.md` (+ optional images + supplementary `.md` files) | 16 requirement documents in `requirements/<app-name>/` |
 | 2 | `/plan` | The requirements from Stage 1 | `plans/<app-name>/PLAN.md` |
-| 3 | `/create` | The plan from Stage 2 | Three repos: `web-api-<app>/`, `web-<app>/`, `db-<app>/` |
-| 4 | `/validate` | The generated repos | Scored compliance report (security, quality, API, DB, frontend, framework) |
+| 3 | `/create` | The plan from Stage 2 | Three repos: `web-api-<app>/`, `web-<app>/`, `db-<app>/` — each with a `DEVELOPER_GUIDE.md` |
+| 4 | `/validate` | The generated repos | Scored compliance report (8 categories: security, quality, API, DB, Docker, frontend, framework, testing, accessibility) |
 | 5 | Copilot Chat (ongoing) | The scaffold + `.github/copilot-instructions.md` | Feature development |
+| — | `/iterate` | Existing repos + feature name | New migration, API feature, OpenAPI entries, frontend page, and test stubs added to the repos |
+| — | `/docs` | Existing repos + plan | Regenerated `DEVELOPER_GUIDE.md` in each repo (run standalone if guides become stale) |
 
 The commands are available two ways:
 - **GitHub Copilot agent prompts** in `.github/prompts/` — run in Copilot Chat agent mode, Copilot prompts for the app name
@@ -55,8 +58,10 @@ Create the file `ideas/<app-name>/ideas.md`. Use kebab-case for the app name —
 ```
 ideas/
 └── my-new-app/
-    ├── ideas.md          ← required
-    └── mockup.png        ← optional (Figma exports, wireframes, screenshots)
+    ├── ideas.md                    ← required: primary idea description
+    ├── technical-constraints.md    ← optional: infrastructure limits, integration requirements
+    ├── competitor-notes.md         ← optional: detailed competitive research
+    └── mockup.png                  ← optional: Figma exports, wireframes, screenshots
 ```
 
 Your `ideas.md` should cover:
@@ -85,7 +90,13 @@ What is this NOT?
 Domain knowledge, regulatory requirements, integration needs, etc.
 ```
 
-Add screenshots or Figma exports to the same folder — `/design` reads them as visual context.
+**Multi-file ideas**: any extra `.md` files in the folder are merged as supplementary context by `/design`. Use them when a single file gets too long or when different people own different parts of the idea (e.g., a product manager owns `ideas.md`, an engineer writes `technical-constraints.md`).
+
+**API-only apps**: add `**Type: API-only**` at the top of `ideas.md` and `/design`/`/create` will skip the frontend scaffold — only `web-api-<app>` and `db-<app>` are generated. See `ideas/README.md` for the API-only template.
+
+**Pre-flight check**: before running `/design`, run `/audit-idea my-new-app` to get a READY / NEEDS WORK / BLOCKED verdict and a list of gaps to fix first.
+
+Add screenshots or Figma exports to the same folder — `/design` extracts pages, navigation structure, MUI components, data entities, and user roles directly from the images.
 
 ---
 
@@ -166,12 +177,14 @@ The scaffold includes:
 - DB client with connection pooling and parameterized query helpers
 - `docs/openapi.yaml` for all endpoints (written before route code — contract-first)
 - `docs/spec/` in every repo — full requirements and plan copied in for developer context
+- `DEVELOPER_GUIDE.md` in every repo — local setup steps, env var table, auth explanation, and how to add a feature or migration, all specific to this app
 - Postman collection with test scripts
 - Unprotected `GET /health` and `GET /health/ready` endpoints
 - Flyway migrations for every table in the data model
 - React pages, service modules, and router with protected routes
 - Helm chart with environment-specific values files
 - `docker-compose.yml` for local development
+- GitHub Actions CI/CD workflow (lint → test → build → deploy dev → qa → uat → prod)
 
 `/create` finishes with a self-audit confirming no hardcoded secrets, missing routes, missing migrations, or missing pages.
 
@@ -179,14 +192,17 @@ The scaffold includes:
 
 ### 5. Validate the Scaffold
 
-Run `/validate my-new-app` (Copilot) or `/validate my-new-app` (Claude Code) to audit the generated scaffold against all six coding standards. It produces a scored report (0–100) with findings grouped by category:
+Run `/validate my-new-app` (Copilot) or `/validate my-new-app` (Claude Code) to audit the generated scaffold against all coding standards. It produces a scored report (0–100) with findings grouped by category:
 
-- Security — hardcoded secrets, SQL injection, JWT validation, CORS, rate limiting
-- Code Quality — TypeScript `any`, `console.log`, async patterns, test coverage
-- API Standards — URI versioning, HTTP status codes, OpenAPI spec, Postman collection
-- DB Migrations — naming, `SELECT *`, transaction patterns, `flyway.conf` committed
-- Frontend — service layer, `requireAuth()` coverage, `static-config.json` fields
-- Framework Compliance — startup sequence, route plugin signature, `requireScope`, theme
+- **Security** — hardcoded secrets, SQL injection, JWT validation, CORS, rate limiting, OWASP patterns
+- **Code Quality** — TypeScript `any`, `console.log`, async patterns, direct API calls in components
+- **API Standards** — URI versioning, HTTP status codes, OpenAPI spec, Postman collection
+- **DB Migrations** — naming convention, `SELECT *`, transaction patterns, `flyway.conf` not committed
+- **Docker Compose** — Flyway sibling-repo mount path, no hardcoded secrets, health checks, service scope
+- **Frontend** — service layer, `requireAuth()` coverage, `static-config.json` fields, MUI theme
+- **Framework Compliance** — startup sequence, route plugin signature, `requireScope`, `claTheme`
+- **Testing** — service/route test files present, no `.only` in tests, coverage thresholds ≥ 85%, RTL used
+- **Accessibility** — WCAG 2.1 AA: keyboard reachability, ARIA labels, form associations, focus management
 
 Fix any CRITICAL or HIGH findings before starting feature development.
 
@@ -229,6 +245,8 @@ npm install
 npm run dev                # http://localhost:3000
 ```
 
+**Adding features after launch**: run `/iterate my-new-app <feature-name>` to scaffold a new feature into the existing repos — it reads the current codebase, plans the migration + API + frontend page, writes all the files, and runs a self-audit.
+
 **Then use GitHub Copilot Chat or Claude Code to build features.** Both read `.github/copilot-instructions.md` (Copilot) or `.github/qwen-instructions.md` (local models via Claude Code) and apply the organization's coding standards automatically — you do not need to explain the stack or the rules.
 
 ---
@@ -246,6 +264,8 @@ The instructions file gives Copilot full context on every standard, with ❌/✅
 | **Authentication** | `framework-react-core` handles SPA auth (never reimplement), JWT bearer for API, Entra config from `static-config.json` |
 | **Frontend rules** | Service layer required (no API calls in components), `requireAuth()` on all protected routes, `static-config.json` required fields, explicit return types, default exports on pages only |
 | **Framework compliance** | `FrameworkFastify.create()` startup sequence, route plugin signature with `{ db }`, `requireScope` for role-gated routes, `claTheme` via `lib-seamlesscomponents-react`, `framework-eslint-config` in all repos |
+| **Testing** | Vitest + RTL required, every service and route has a test file, no `.only` in committed tests, no mssql mocking in integration tests, coverage thresholds ≥ 85% enforced in `vitest.config.ts` |
+| **Accessibility** | WCAG 2.1 AA — keyboard reachability, alt text, form label associations, icon button `aria-label`, Dialog/Tab/DataGrid ARIA patterns, no `outline:none` without replacement |
 
 ---
 
@@ -265,20 +285,29 @@ cla_spec_kit/
 │   ├── CODE_QUALITY_SPECS.md
 │   ├── FLYWAY_DB_SPECS.md
 │   ├── FRAMEWORK_SPECS.md
-│   └── context/          ← 6 distilled audit rule files used by /validate
+│   └── context/          ← 8 distilled audit rule files used by /validate
 │       ├── 01-security.md
 │       ├── 02-code-quality.md
 │       ├── 03-api-standards.md
 │       ├── 04-db-migrations.md
 │       ├── 05-frontend.md
-│       └── 06-framework.md
+│       ├── 06-framework.md
+│       ├── 07-testing.md         ← Vitest patterns, RTL, coverage thresholds, test structure
+│       └── 08-accessibility.md   ← WCAG 2.1 AA rules auditable from source
 ├── templates/            ← Starter templates used by /create (read-only)
 │   ├── framework-nodejs-starter-kit/
 │   ├── framework-react-starter-kit/
 │   ├── framework-db-starter-kit/  ← Flyway + docker-compose template for db-<app> repos
 │   └── helm/             ← Helm chart template for AKS deployment
 └── .claude/
-    └── commands/         ← Claude Code slash commands (/design, /plan, /create, /validate)
+    └── commands/         ← Claude Code slash commands
+        ├── design.md     ← /design <app-name>
+        ├── plan.md       ← /plan <app-name>
+        ├── create.md     ← /create <app-name>
+        ├── validate.md   ← /validate <app-name>
+        ├── audit-idea.md ← /audit-idea <app-name>
+        ├── iterate.md    ← /iterate <app-name> <feature-name>
+        └── docs.md       ← /docs <app-name>
 ```
 
 ---

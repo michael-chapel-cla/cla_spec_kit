@@ -86,3 +86,73 @@ Make the tool self-maintaining and integrated with the CI/CD pipeline.
 | 5.2 | Template version tracking — record which template version was used at `/create` time; surface a warning when templates have been updated since the app was scaffolded | ⬜ |
 | 5.3 | Spec drift detection — when a `specs/` file changes, open a checklist issue listing all generated apps that should be reviewed for compliance | ⬜ |
 | 5.4 | `ideas/` prompt helper — VS Code snippet or script that creates a correctly-structured `ideas/<app>/ideas.md` stub in one command | ⬜ |
+
+---
+
+## Phase 6 — Observability
+
+Once there are more than a few apps in flight, there's no way to see what stage each one is at or how they scored. This phase adds visibility across the full pipeline.
+
+| # | Item | Status |
+|---|---|---|
+| 6.1 | App registry — `registry.json` at the root tracking every app: current stage (idea / designed / planned / created / validated), template version it was scaffolded from, and last `/validate` score | ⬜ |
+| 6.2 | `/status <app>` — reads the registry and filesystem; prints a one-line summary of what exists, what's missing, and the last score | ⬜ |
+| 6.3 | `/status` (no args) — prints the registry table for all known apps with their current stage and score | ⬜ |
+| 6.4 | `/create` and `/validate` write back to `registry.json` automatically on completion | ⬜ |
+
+---
+
+## Phase 7 — Pre-build Quality Gates
+
+The gap between `/plan` and `/create` is where bad assumptions solidify into scaffolded code. These gates catch problems before they become generated files.
+
+| # | Item | Status |
+|---|---|---|
+| 7.1 | `/audit-plan <app>` prompt — pre-flight check on `PLAN.md` before `/create`; flags missing endpoint definitions, tables without migrations, frontend pages with no API calls, or page count that doesn't match `LLD.md` | ⬜ |
+| 7.2 | `/dry-run <app>` prompt — simulates `/create` and outputs a manifest of every file that would be written, with a diff against what already exists in `repos/` if the repos are present | ⬜ |
+| 7.3 | `/estimate <app>` prompt — reads `PLAN.md` and produces a rough effort estimate: feature-by-feature breakdown in dev-days, grouped by MVP vs. post-MVP — useful for resourcing before `/create` runs | ⬜ |
+
+---
+
+## Phase 8 — Spec Coverage Gaps
+
+`/validate` has no rules for testing or accessibility. These two context files bring coverage in line with what a real engineering standard would require.
+
+| # | Item | Status |
+|---|---|---|
+| 8.1 | `specs/context/07-testing.md` — Vitest patterns, React Testing Library conventions, 85% coverage target, what must have unit vs. integration tests, test file naming and colocation rules | ✅ |
+| 8.2 | `specs/context/08-accessibility.md` — MUI accessibility patterns, required ARIA roles, keyboard navigation requirements, colour contrast rules — all verifiable from source | ✅ |
+| 8.3 | Wire both new context files into `/validate` — add Testing and Accessibility sections to the audit, report format, and summary table | ✅ |
+
+---
+
+## Phase 9 — Developer Handoff
+
+Scaffolded apps get `docs/spec/` but nothing tailored to how the code is actually structured. This phase bridges the gap between "generated" and "actively developed."
+
+| # | Item | Status |
+|---|---|---|
+| 9.1 | `/docs <app>` prompt — generates a `DEVELOPER_GUIDE.md` in each repo: local setup steps, how to add a feature (using `/iterate`), how auth works in this specific app, env vars and what each does — derived from `PLAN.md` and the scaffolded code | ✅ |
+| 9.2 | Wire `/create` to run `/docs` automatically after scaffolding so every generated app ships with a developer guide | ✅ |
+
+---
+
+## Phase 10 — Template Lifecycle
+
+Templates will change over time. Generated apps will drift from those templates with no path back. This phase creates a managed upgrade process.
+
+| # | Item | Status |
+|---|---|---|
+| 10.1 | `templates/CHANGELOG.md` — records what changed in each template version (new config fields, updated deps, new CI steps) so `/upgrade` can describe *why* a diff exists | ⬜ |
+| 10.2 | `/upgrade <app>` prompt — compares the current templates against what was scaffolded, shows a diff of what changed since the app was generated, and applies non-breaking changes (new config fields, updated CI steps, dep version bumps) | ⬜ |
+
+---
+
+## Phase 11 — Self-Testing
+
+The spec-kit has no automated tests of its own. A broken prompt or template change could silently produce invalid scaffolds with no detection.
+
+| # | Item | Status |
+|---|---|---|
+| 11.1 | End-to-end test fixture — `ideas/ci-test-app/ideas.md` with a minimal but complete idea; checked in as a permanent test fixture | ⬜ |
+| 11.2 | GitHub Actions E2E workflow — on every PR that touches a prompt file or template: runs `/design`, `/plan`, `/create`, and `/validate` on `ci-test-app` in sequence, asserts validate score ≥ 90, deletes the test repos on success | ⬜ |

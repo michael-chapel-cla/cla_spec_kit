@@ -920,6 +920,14 @@ Verify before reporting complete:
 
 Report any gaps found.
 
-### Step 10 — Output summary
+### Step 10 — Generate developer guides
+
+Read `.github/prompts/docs.prompt.md` and execute every step it describes for `${input:appName}`.
+
+This generates `DEVELOPER_GUIDE.md` in each of the three repos — the guides describe local setup, auth, how to add features, and migration conventions, all specific to this app.
+
+---
+
+### Step 11 — Output summary
 
 List all files created, organized by repo. Note any items from the plan not fully implemented and explain why.

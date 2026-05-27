@@ -28,13 +28,15 @@ Read the following to understand what was built:
 
 ### Step 2 — Load the audit rules
 
-Read all six audit context files:
+Read all eight audit context files:
 - `/specs/context/01-security.md`
 - `/specs/context/02-code-quality.md`
 - `/specs/context/03-api-standards.md`
 - `/specs/context/04-db-migrations.md`
 - `/specs/context/05-frontend.md`
 - `/specs/context/06-framework.md`
+- `/specs/context/07-testing.md`
+- `/specs/context/08-accessibility.md`
 
 ---
 
@@ -112,6 +114,28 @@ Run audits in this order, checking the relevant files for every rule in the load
 - Each repo's compose file only defines the services relevant to that repo — db compose should not start the API, api compose should not start the frontend (DC05, MEDIUM)
 - No `trustServerCertificate=true` in Flyway JDBC URL in production-targeted compose files (DC06, MEDIUM — acceptable in `docker-compose.override.yml` or dev-only files)
 
+**Testing audit** (07-testing.md) — scan `web-api-${input:appName}/tests/`, `web-${input:appName}/test/`, and all `vitest.config.ts` files:
+- Every `.service.ts` has a corresponding `.service.test.ts` (T01)
+- Every `.routes.ts` has a corresponding `.routes.test.ts` (T02)
+- No `test.only` or `describe.only` in committed test files (T03)
+- No `vi.mock('mssql')` in integration tests (T07)
+- `vitest.config.ts` has coverage thresholds set to ≥ 85 for all four metrics (T10)
+- All test blocks contain at least one `expect()` call (T14)
+- All other rules in 07-testing.md
+
+**Accessibility audit** (08-accessibility.md) — scan all `.tsx` files in `web-${input:appName}/src/`:
+- `<div onClick>` or `<span onClick>` without `role` and `tabIndex={0}` (AX01)
+- `<img>` missing `alt` attribute (AX02)
+- MUI `TextField`, `Select`, `Checkbox` missing `label` prop (AX03)
+- `<IconButton>` missing `aria-label` (AX04)
+- Error messages not using MUI `helperText` + `error` props (AX05)
+- Status indicators using color alone with no icon or text (AX06)
+- MUI `Dialog` missing `aria-labelledby` (AX09)
+- MUI `Tab` missing `id` and `aria-controls`; TabPanel missing `aria-labelledby` (AX10)
+- DataGrid column definitions missing `headerName` (AX11)
+- `outline: none` with no `focus-visible` replacement (AX14)
+- All other rules in 08-accessibility.md
+
 **Framework compliance audit** (06-framework.md) — scan `web-api-${input:appName}/src/app.ts`, all route files, `web-${input:appName}/src/App.tsx`, `web-${input:appName}/src/router.tsx`, and all `eslint.config.*` files:
 - App created without `FrameworkFastify.create()` (W01)
 - Config not initialised with `framework.initAppConfig()` (W02)
@@ -180,6 +204,16 @@ Format the report exactly as shown below:
 | Severity | Rule | File | Finding |
 |---|---|---|---|
 
+### Testing
+
+| Severity | Rule | File | Finding |
+|---|---|---|---|
+
+### Accessibility
+
+| Severity | Rule | File | Finding |
+|---|---|---|---|
+
 ### Summary
 
 | Category | CRITICAL | HIGH | MEDIUM | LOW |
@@ -191,6 +225,8 @@ Format the report exactly as shown below:
 | Docker Compose | 0 | 0 | 0 | 0 |
 | Frontend | 0 | 0 | 0 | 0 |
 | Framework Compliance | 0 | 0 | 0 | 0 |
+| Testing | 0 | 0 | 0 | 0 |
+| Accessibility | 0 | 0 | 0 | 0 |
 | **Total** | **0** | **0** | **0** | **0** |
 
 **Score breakdown**: started 100 — deducted X for [list findings] = **XX/100**
