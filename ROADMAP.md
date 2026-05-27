@@ -36,15 +36,15 @@ Tighten up loose ends from Phase 1. No new capabilities — just everything work
 
 | # | Item | Status |
 |---|---|---|
-| 2.1 | `CLAUDE.md` — scope Claude Code to the three commands when used directly in this repo | ⬜ |
-| 2.2 | `.claude/commands/` — Claude Code slash commands (`/design`, `/plan`, `/create`, `/validate`) as an alternative to the Copilot prompts | ⬜ |
-| 2.3 | DB repo template (`templates/framework-db-starter-kit/`) — Flyway config, docker-compose, devcontainer, README stub for `db-<app>` | ⬜ |
-| 2.4 | Update `/validate` prompt to use three-repo paths (`web-api-<app>/`, `web-<app>/`, `db-<app>/`) — currently points to legacy single-repo layout | ⬜ |
-| 2.5 | Update `AGENTS.md` to reflect three-repo model (currently references `backend/`, `frontend/`, `db/` under one root) | ⬜ |
-| 2.6 | Update `README.md` to reference `requirements/expense-flow/` as the example (currently says `requirements/example/`) and reflect three-repo local dev setup | ⬜ |
-| 2.7 | `specs/context/05-frontend.md` — distilled frontend audit rules (hook rules, no inline API calls, `static-config.json` pattern) to match the detail of the other four context files | ⬜ |
-| 2.9 | `specs/context/06-framework.md` — deeper context for `FRAMEWORK_SPECS.md` usage: specific `framework-nodejs-fastify` plugin conventions, `framework-react-core` auth flow and hook contracts, `lib-seamlesscomponents-react` theme API, and `framework-eslint-config` rule set — so `/create` and `/validate` can enforce framework-specific patterns rather than just generic TypeScript standards | ⬜ |
-| 2.8 | `repos/README.md` — update to reflect three-repo model and sibling-clone requirement | 🔄 |
+| 2.1 | `CLAUDE.md` — scope Claude Code to the three commands when used directly in this repo | ✅ |
+| 2.2 | `.claude/commands/` — Claude Code slash commands (`/design`, `/plan`, `/create`, `/validate`) as an alternative to the Copilot prompts | ✅ |
+| 2.3 | DB repo template (`templates/framework-db-starter-kit/`) — Flyway config, docker-compose, devcontainer, README stub for `db-<app>` | ✅ |
+| 2.4 | Update `/validate` prompt to use three-repo paths (`web-api-<app>/`, `web-<app>/`, `db-<app>/`) — currently points to legacy single-repo layout | ✅ |
+| 2.5 | Update `AGENTS.md` to reflect three-repo model (currently references `backend/`, `frontend/`, `db/` under one root) | ✅ |
+| 2.6 | Update `README.md` to reference `requirements/expense-flow/` as the example (currently says `requirements/example/`) and reflect three-repo local dev setup | ✅ |
+| 2.7 | `specs/context/05-frontend.md` — distilled frontend audit rules (hook rules, no inline API calls, `static-config.json` pattern) to match the detail of the other four context files | ✅ |
+| 2.8 | `repos/README.md` — update to reflect three-repo model and sibling-clone requirement | ✅ |
+| 2.9 | `specs/context/06-framework.md` — deeper context for `FRAMEWORK_SPECS.md` usage: specific `framework-nodejs-fastify` plugin conventions, `framework-react-core` auth flow and hook contracts, `lib-seamlesscomponents-react` theme API, and `framework-eslint-config` rule set — so `/create` and `/validate` can enforce framework-specific patterns rather than just generic TypeScript standards | ✅ |
 
 ---
 

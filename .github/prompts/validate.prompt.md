@@ -15,12 +15,13 @@ Audit **${input:appName}** against the organization's coding standards and produ
 ### Step 1 — Read the application
 
 Read the following to understand what was built:
-- All TypeScript files under `/repos/${input:appName}/backend/src/`
-- All SQL files under `/repos/${input:appName}/db/migrations/`
-- `/repos/${input:appName}/backend/docs/openapi.yaml`
-- `/repos/${input:appName}/backend/.env.example`
-- `/repos/${input:appName}/docker-compose.yml`
-- All TypeScript files under `/repos/${input:appName}/frontend/src/`
+- All TypeScript files under `/repos/web-api-${input:appName}/src/`
+- All SQL files under `/repos/db-${input:appName}/migrations/`
+- `/repos/web-api-${input:appName}/docs/openapi.yaml`
+- `/repos/web-api-${input:appName}/.env.example`
+- `/repos/web-api-${input:appName}/docker-compose.yml`
+- `/repos/db-${input:appName}/docker-compose.yml`
+- All TypeScript files under `/repos/web-${input:appName}/src/`
 
 ---
 
@@ -50,7 +51,7 @@ Starting score: **100**. Minimum: **0**.
 
 Run audits in this order, checking the relevant files for every rule in the loaded context files:
 
-**Security audit** (01-security.md) — scan all backend TypeScript, SQL files, config files, and `.env.example`:
+**Security audit** (01-security.md) — scan `web-api-${input:appName}/src/`, `db-${input:appName}/migrations/`, and `web-api-${input:appName}/.env.example`:
 - Hardcoded secrets (S03, S09)
 - SQL string concatenation (S04)
 - JWT verification missing algorithm, issuer, or audience (S07, S13)
@@ -61,7 +62,7 @@ Run audits in this order, checking the relevant files for every rule in the load
 - Stack traces in error responses (S12)
 - All other rules in 01-security.md
 
-**Code quality audit** (02-code-quality.md) — scan all TypeScript files:
+**Code quality audit** (02-code-quality.md) — scan all TypeScript files in `web-api-${input:appName}/src/` and `web-${input:appName}/src/`:
 - TypeScript `any` usage (Q01)
 - `console.log` in production code (Q03)
 - `.then()/.catch()` chains instead of async/await (Q05)
@@ -69,7 +70,7 @@ Run audits in this order, checking the relevant files for every rule in the load
 - `useEffect` missing dependencies (Q12)
 - All other rules in 02-code-quality.md
 
-**API standards audit** (03-api-standards.md) — scan routes, openapi.yaml, and error handlers:
+**API standards audit** (03-api-standards.md) — scan `web-api-${input:appName}/src/features/`, `web-api-${input:appName}/docs/openapi.yaml`, and `web-api-${input:appName}/postman/`:
 - Missing or incomplete openapi.yaml (A01, A02)
 - Missing URI versioning (A03)
 - Verbs in URL paths (A04)
@@ -80,7 +81,7 @@ Run audits in this order, checking the relevant files for every rule in the load
 - Missing Postman collection (A26)
 - All other rules in 03-api-standards.md
 
-**DB migrations audit** (04-db-migrations.md) — scan all `.sql` files in `db/migrations/`:
+**DB migrations audit** (04-db-migrations.md) — scan all `.sql` files in `db-${input:appName}/migrations/`:
 - Naming convention violations (D01)
 - Duplicate version numbers (D02)
 - `SELECT *` in migrations (D05)

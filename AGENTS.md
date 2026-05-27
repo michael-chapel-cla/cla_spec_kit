@@ -11,9 +11,11 @@ Agents must NOT assist with general coding tasks, answer general programming que
 The spec-kit automates a three-stage workflow for creating new applications:
 
 ```
-/design <app-name>   →   /requirements/<app-name>/   (16 requirement documents)
-/plan   <app-name>   →   /plans/<app-name>/PLAN.md   (phased build plan)
-/create <app-name>   →   /repos/<app-name>/          (scaffolded application)
+/design <app-name>   →   /requirements/<app-name>/        (16 requirement documents)
+/plan   <app-name>   →   /plans/<app-name>/PLAN.md        (phased build plan)
+/create <app-name>   →   /repos/web-api-<app-name>/       (API repo)
+                         /repos/web-<app-name>/           (frontend repo)
+                         /repos/db-<app-name>/            (DB migrations repo)
 ```
 
 Start by creating `ideas/<app-name>/ideas.md`, then run the commands in order.
@@ -26,9 +28,12 @@ Start by creating `ideas/<app-name>/ideas.md`, then run the commands in order.
 cla_spec_kit/
 ├── ideas/                    ← Input: ideas/<app-name>/ideas.md (+ optional images)
 ├── requirements/             ← /design writes here
-│   └── example/              ← Reference: 16 example documents showing expected output
+│   └── expense-flow/         ← Reference: 16 example documents showing expected output
 ├── plans/                    ← /plan writes here
-├── repos/                    ← /create writes here (generated apps live here)
+├── repos/                    ← /create writes here — three repos per app:
+│   ├── web-api-<app-name>/   ←   Node.js + Fastify API
+│   ├── web-<app-name>/       ←   React SPA
+│   └── db-<app-name>/        ←   Flyway SQL migrations
 ├── specs/                    ← Coding standards applied during /create
 │   ├── API_STANDARDS.md
 │   ├── CODE_QUALITY_SPECS.md
@@ -47,7 +52,7 @@ cla_spec_kit/
 
 - **Backend**: Node.js + Fastify + TypeScript (from `templates/framework-nodejs-starter-kit/`)
 - **Frontend**: React + Vite + TypeScript + MUI (from `templates/framework-react-starter-kit/`)
-- **Database**: MSSQL + Flyway migrations (DB lives at `repos/<app-name>/db/`, sibling to `backend/`)
+- **Database**: MSSQL + Flyway migrations (DB lives in `repos/db-<app-name>/`, cloned as a sibling to the API and frontend repos)
 - **Auth**: Azure Entra (OIDC for SPA, JWT bearer for API)
 - **Infra**: AKS + Helm (from `templates/helm/`)
 - **Standards**: See `/specs/` — always apply during `/create`
@@ -60,7 +65,7 @@ cla_spec_kit/
 |---|---|---|
 | `/design <app-name>` | `/ideas/<app-name>/ideas.md` + optional images | `/requirements/<app-name>/` (16 docs) |
 | `/plan <app-name>` | `/requirements/<app-name>/` | `/plans/<app-name>/PLAN.md` |
-| `/create <app-name>` | `/plans/<app-name>/PLAN.md` + `/specs/` | `/repos/<app-name>/` (full scaffold) |
+| `/create <app-name>` | `/plans/<app-name>/PLAN.md` + `/specs/` | `/repos/web-api-<app-name>/`, `/repos/web-<app-name>/`, `/repos/db-<app-name>/` |
 
 ---
 
@@ -69,6 +74,6 @@ cla_spec_kit/
 - Do not assist with general coding questions or tasks outside the three commands above
 - Do not generate code outside of the `/create` command workflow
 - Do not modify files in `/templates/` (including `/templates/helm/`) or `/specs/`
-- Do not modify files in `/requirements/example/`
+- Do not modify files in `/requirements/expense-flow/`
 - Do not create apps from scratch — always start from `/templates/`
 - Do not answer questions about the generated apps in `/repos/` — that work belongs in the generated app's own repo, guided by `.github/copilot-instructions.md` (for GitHub Copilot) or `.github/qwen-instructions.md` (for Qwen/local models)

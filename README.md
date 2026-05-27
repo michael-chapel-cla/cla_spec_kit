@@ -111,7 +111,7 @@ This reads your idea file (and any images) and generates 16 requirement document
 
 **Review these documents before running `/plan`.** Edit anything that is wrong — `/plan` reads them as its input.
 
-See `requirements/example/` for what each document looks like when complete.
+See `requirements/expense-flow/` for what each document looks like when complete.
 
 ---
 
@@ -144,15 +144,16 @@ In **GitHub Copilot Chat**, run:
 /create my-new-app
 ```
 
-This reads the plan and the coding standards in `specs/`, then builds a complete application at `repos/my-new-app/`:
+This reads the plan and the coding standards in `specs/`, then builds three independent repos:
 
 ```
-repos/my-new-app/
-├── backend/              ← Node.js + Fastify + TypeScript
-├── db/                   ← Flyway SQL migrations
-├── frontend/             ← React + Vite + TypeScript + MUI
-└── helm/                 ← AKS Helm chart
+repos/
+├── web-api-my-new-app/   ← Node.js + Fastify + TypeScript API
+├── web-my-new-app/       ← React + Vite + TypeScript + MUI SPA
+└── db-my-new-app/        ← Flyway SQL migrations
 ```
+
+Each repo has its own `helm/`, `docker-compose.yml`, `.devcontainer/`, and `azure-pipelines.yml`.
 
 The scaffold includes:
 - Feature-organized routes, services, schemas, and types for every endpoint in the plan
@@ -174,41 +175,37 @@ The scaffold includes:
 
 The scaffold is ready for active development. Each generated app is an **independent repository candidate** — it is not committed to this spec-kit repo.
 
-**Initialize a repo for your app:**
+**Initialize repos for your app:**
 
 ```bash
-cd repos/my-new-app
-git init
-git add .
-git commit -m "Initial scaffold from CLA spec kit"
-git remote add origin https://github.com/your-org/my-new-app.git
-git push -u origin main
+# Each of the three generated repos becomes its own git repository
+cd repos/web-api-my-new-app && git init && git add . && git commit -m "Initial scaffold" && git remote add origin https://github.com/your-org/web-api-my-new-app.git && git push -u origin main
+cd ../web-my-new-app        && git init && git add . && git commit -m "Initial scaffold" && git remote add origin https://github.com/your-org/web-my-new-app.git && git push -u origin main
+cd ../db-my-new-app         && git init && git add . && git commit -m "Initial scaffold" && git remote add origin https://github.com/your-org/db-my-new-app.git && git push -u origin main
 ```
 
 **Start the local dev environment:**
 
+The three repos must be cloned as siblings — the API docker-compose mounts `../db-my-new-app/migrations` for Flyway.
+
 ```bash
-cd repos/my-new-app
+# 1. Configure the API
+cp repos/web-api-my-new-app/.env.example repos/web-api-my-new-app/.env
+# Edit .env — fill in: DATABASE_SERVER, DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD,
+#                       ENTRA_ISSUER, ENTRA_AUDIENCE, BLOB_ACCOUNT_NAME, BLOB_ACCOUNT_KEY
 
-# Install dependencies
-cd backend && npm install
-cd ../frontend && npm install
+# 2. Configure frontend auth
+# Edit repos/web-my-new-app/public/static-config.json — fill in clientId and authority
 
-# Configure environment
-cp backend/.env.example backend/.env
-# Edit backend/.env — fill in: DB_*, ENTRA_ISSUER, ENTRA_AUDIENCE, CORS_ORIGINS
+# 3. Start the API stack (DB + Flyway migrations + API)
+cd repos/web-api-my-new-app
+npm install
+docker-compose up          # http://localhost:8080
 
-# Configure frontend auth (local dev only)
-# Edit frontend/public/static-config.json — fill in clientId and authority
-
-# Start database and run migrations
-docker compose --env-file backend/.env up -d db
-docker compose --env-file backend/.env run --rm db-init
-docker compose --env-file backend/.env run --rm flyway migrate
-
-# Start the app
-cd backend && npm run dev     # http://localhost:8080
-cd ../frontend && npm run dev # http://localhost:3000
+# 4. Start the frontend (separate terminal)
+cd repos/web-my-new-app
+npm install
+npm run dev                # http://localhost:3000
 ```
 
 **Then use GitHub Copilot Chat to build features.** Copilot reads `.github/copilot-instructions.md` and applies the organization's coding standards automatically — you do not need to explain the stack or the rules.
@@ -235,7 +232,7 @@ The instructions file gives Copilot full context on every standard, with ❌/✅
 cla_spec_kit/
 ├── ideas/                ← YOU CREATE: ideas/<app-name>/ideas.md + optional images
 ├── requirements/         ← /design writes here
-│   └── example/          ← 16 reference documents showing expected output
+│   └── expense-flow/     ← 16 reference documents showing expected output
 ├── plans/                ← /plan writes here
 ├── repos/                ← /create writes here — generated apps live here
 ├── specs/                ← Coding standards (read-only)
@@ -273,6 +270,6 @@ All generated applications use this stack. There is no configuration — the tem
 **Do not modify** — changes here affect every app generated afterward:
 - `templates/` — the master starter templates (including `templates/helm/`)
 - `specs/` — the organization's coding standards
-- `requirements/example/` — the reference documents used by `/design`
+- `requirements/expense-flow/` — the reference documents used by `/design`
 
 **Do not commit generated apps** — `repos/<app-name>/` directories are gitignored. Each generated app becomes its own independent repository.
