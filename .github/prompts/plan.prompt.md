@@ -88,7 +88,7 @@ Read the following to understand what must be customized:
 - `/templates/framework-react-starter-kit/package.json`
 - `/templates/framework-nodejs-starter-kit/src/static-config.json`
 - `/templates/framework-react-starter-kit/public/static-config.json`
-- `/helm/values.yaml`
+- `/templates/helm/values.yaml`
 
 ### Step 3 — Create the plans directory
 

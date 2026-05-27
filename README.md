@@ -244,10 +244,10 @@ cla_spec_kit/
 │   ├── FLYWAY_DB_SPECS.md
 │   ├── FRAMEWORK_SPECS.md
 │   └── context/          ← Distilled audit rules embedded in the agent commands
-├── templates/            ← Starter templates used by /create (read-only)
-│   ├── framework-nodejs-starter-kit/
-│   └── framework-react-starter-kit/
-└── helm/                 ← Helm chart template used by /create (read-only)
+└── templates/            ← Starter templates used by /create (read-only)
+    ├── framework-nodejs-starter-kit/
+    ├── framework-react-starter-kit/
+    └── helm/             ← Helm chart template for AKS deployment
 ```
 
 ---
@@ -271,9 +271,8 @@ All generated applications use this stack. There is no configuration — the tem
 ## Rules for This Repo
 
 **Do not modify** — changes here affect every app generated afterward:
-- `templates/` — the master starter templates
+- `templates/` — the master starter templates (including `templates/helm/`)
 - `specs/` — the organization's coding standards
-- `helm/` — the base Helm chart template
 - `requirements/example/` — the reference documents used by `/design`
 
 **Do not commit generated apps** — `repos/<app-name>/` directories are gitignored. Each generated app becomes its own independent repository.

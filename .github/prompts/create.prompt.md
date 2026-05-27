@@ -493,7 +493,7 @@ services:
 }
 ```
 
-**3o.** Copy the Helm chart. Copy the entire contents of `/helm/` into `/repos/web-api-${input:appName}/helm/`. Apply the API-specific Helm config from the plan:
+**3o.** Copy the Helm chart. Copy the entire contents of `/templates/helm/` into `/repos/web-api-${input:appName}/helm/`. Apply the API-specific Helm config from the plan:
 - `helm/Chart.yaml`: `name` → `web-api-${input:appName}`, `description`
 - `helm/values.yaml`: `app.name`, `image.repository`, `istio.pathPrefix` → `/api`, `serviceAccount.name`
 - All `values-*.yaml`: env-specific `istio.hosts`; `azureWorkloadIdentityClientId` as empty placeholder
@@ -696,7 +696,7 @@ services:
 }
 ```
 
-**5g.** Copy the Helm chart. Copy the entire contents of `/helm/` into `/repos/web-${input:appName}/helm/`. Apply the frontend-specific Helm config from the plan:
+**5g.** Copy the Helm chart. Copy the entire contents of `/templates/helm/` into `/repos/web-${input:appName}/helm/`. Apply the frontend-specific Helm config from the plan:
 - `helm/Chart.yaml`: `name` → `web-${input:appName}`, `description`
 - `helm/values.yaml`: `app.name`, `image.repository`, `istio.pathPrefix` → `/`, `serviceAccount.name`
 - All `values-*.yaml`: env-specific `istio.hosts`; `azureWorkloadIdentityClientId` as empty placeholder

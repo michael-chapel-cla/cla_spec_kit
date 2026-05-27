@@ -35,10 +35,10 @@ cla_spec_kit/
 │   ├── FLYWAY_DB_SPECS.md
 │   ├── FRAMEWORK_SPECS.md
 │   └── context/              ← Distilled audit rules (01-security, 02-code-quality, 03-api-standards, 04-db-migrations)
-├── templates/                ← Starting points for /create (never modify)
-│   ├── framework-nodejs-starter-kit/   ← Backend API (Node.js + Fastify + TypeScript)
-│   └── framework-react-starter-kit/    ← Frontend (React + Vite + TypeScript + MUI)
-└── helm/                     ← Helm chart template for AKS deployment (never modify)
+└── templates/                ← Starting points for /create (never modify)
+    ├── framework-nodejs-starter-kit/   ← Backend API (Node.js + Fastify + TypeScript)
+    ├── framework-react-starter-kit/    ← Frontend (React + Vite + TypeScript + MUI)
+    └── helm/                           ← Helm chart template for AKS deployment
 ```
 
 ---
@@ -49,7 +49,7 @@ cla_spec_kit/
 - **Frontend**: React + Vite + TypeScript + MUI (from `templates/framework-react-starter-kit/`)
 - **Database**: MSSQL + Flyway migrations (DB lives at `repos/<app-name>/db/`, sibling to `backend/`)
 - **Auth**: Azure Entra (OIDC for SPA, JWT bearer for API)
-- **Infra**: AKS + Helm (from `helm/`)
+- **Infra**: AKS + Helm (from `templates/helm/`)
 - **Standards**: See `/specs/` — always apply during `/create`
 
 ---
@@ -68,7 +68,7 @@ cla_spec_kit/
 
 - Do not assist with general coding questions or tasks outside the three commands above
 - Do not generate code outside of the `/create` command workflow
-- Do not modify files in `/templates/`, `/specs/`, or `/helm/`
+- Do not modify files in `/templates/` (including `/templates/helm/`) or `/specs/`
 - Do not modify files in `/requirements/example/`
 - Do not create apps from scratch — always start from `/templates/`
 - Do not answer questions about the generated apps in `/repos/` — that work belongs in the generated app's own repo, guided by `.github/copilot-instructions.md` (for GitHub Copilot) or `.github/qwen-instructions.md` (for Qwen/local models)
