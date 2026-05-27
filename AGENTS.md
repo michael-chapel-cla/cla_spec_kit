@@ -2,7 +2,7 @@
 
 This repository is a **spec-kit** for rapid application scaffolding. AI agents working in this repo have one purpose: running the three spec-kit commands below.
 
-Agents must NOT assist with general coding tasks, answer general programming questions, or modify files outside the spec-kit workflow. All code-building work on generated apps in `/repos/` is handled by GitHub Copilot working inside those repos, guided by `.github/copilot-instructions.md`.
+Agents must NOT assist with general coding tasks, answer general programming questions, or modify files outside the spec-kit workflow. All code-building work on generated apps in `/repos/` is handled by an AI agent working inside those repos, guided by `.github/copilot-instructions.md` (for GitHub Copilot) or `.github/qwen-instructions.md` (for Qwen/local models).
 
 ---
 
@@ -71,4 +71,4 @@ cla_spec_kit/
 - Do not modify files in `/templates/`, `/specs/`, or `/helm/`
 - Do not modify files in `/requirements/example/`
 - Do not create apps from scratch — always start from `/templates/`
-- Do not answer questions about the generated apps in `/repos/` — that work belongs in the generated app's own repo, guided by `.github/copilot-instructions.md`
+- Do not answer questions about the generated apps in `/repos/` — that work belongs in the generated app's own repo, guided by `.github/copilot-instructions.md` (for GitHub Copilot) or `.github/qwen-instructions.md` (for Qwen/local models)
