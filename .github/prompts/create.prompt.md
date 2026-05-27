@@ -245,11 +245,23 @@ Enabled    BIT NOT NULL DEFAULT 1
 
 ## WORKFLOW
 
-### Step 1 — Read the plan
+### Step 1 — Load the coding standards
+
+Read all eight coding standards files. Every rule in these files is non-negotiable and applies to all generated code. The EMBEDDED STANDARDS REFERENCE section above is a quick summary — the context files are authoritative:
+- `/specs/context/01-security.md` — security rules (S01–S43)
+- `/specs/context/02-code-quality.md` — code quality rules (Q01–Q27)
+- `/specs/context/03-api-standards.md` — API standards (A01–A30)
+- `/specs/context/04-db-migrations.md` — DB migration rules (D01–D18)
+- `/specs/context/05-frontend.md` — frontend rules (F01–F15)
+- `/specs/context/06-framework.md` — framework usage rules (W01–W12)
+- `/specs/context/07-testing.md` — testing rules (T01–T15)
+- `/specs/context/08-accessibility.md` — accessibility rules (AX01–AX15)
+
+### Step 2 — Read the plan
 
 Read all files in `/plans/${input:appName}/`. Note every API endpoint, DB table, frontend page, and Helm config change before creating any files.
 
-### Step 2 — Create the three output directories
+### Step 3 — Create the three output directories
 
 Create these three sibling directories under `/repos/`:
 - `/repos/web-api-${input:appName}/`
@@ -258,7 +270,7 @@ Create these three sibling directories under `/repos/`:
 
 ---
 
-### Step 3 — Scaffold the API repo (`web-api-${input:appName}`)
+### Step 4 — Scaffold the API repo (`web-api-${input:appName}`)
 
 **IMPORTANT: Always start from the template. Never create API files from scratch.**
 
@@ -505,7 +517,7 @@ services:
 
 ---
 
-### Step 4 — Scaffold the DB repo (`db-${input:appName}`)
+### Step 5 — Scaffold the DB repo (`db-${input:appName}`)
 
 Create the following structure at `/repos/db-${input:appName}/`:
 
@@ -605,7 +617,7 @@ Create `README.md` explaining the migration structure, how to run locally, and t
 
 ---
 
-### Step 5 — Scaffold the frontend repo (`web-${input:appName}`)
+### Step 6 — Scaffold the frontend repo (`web-${input:appName}`)
 
 **IMPORTANT: Always start from the template. Never create frontend files from scratch.**
 
@@ -708,7 +720,7 @@ services:
 
 ---
 
-### Step 6 — Generate `.github/copilot-instructions.md` for each repo
+### Step 7 — Generate `.github/copilot-instructions.md` for each repo
 
 Each repo gets its own copilot-instructions tailored to its concern.
 
@@ -801,7 +813,7 @@ Flyway migration scripts for the <App Name> application. These migrations are co
 
 ---
 
-### Step 7 — Create READMEs for each repo
+### Step 8 — Create READMEs for each repo
 
 **7a.** `/repos/web-api-${input:appName}/README.md`:
 ```markdown
@@ -872,7 +884,7 @@ Create a new file in `migrations/` — never edit an existing applied file.
 
 ---
 
-### Step 8 — Copy requirements and plan into each repo
+### Step 9 — Copy requirements and plan into each repo
 
 Copy the spec context into all three repos so developers have full background without needing access to the spec-kit:
 
@@ -890,7 +902,7 @@ Copy the spec context into all three repos so developers have full background wi
 
 ---
 
-### Step 9 — Self-audit
+### Step 10 — Self-audit
 
 Verify before reporting complete:
 
@@ -920,7 +932,7 @@ Verify before reporting complete:
 
 Report any gaps found.
 
-### Step 10 — Generate developer guides
+### Step 11 — Generate developer guides
 
 Read `.github/prompts/docs.prompt.md` and execute every step it describes for `${input:appName}`.
 
@@ -928,6 +940,6 @@ This generates `DEVELOPER_GUIDE.md` in each of the three repos — the guides de
 
 ---
 
-### Step 11 — Output summary
+### Step 12 — Output summary
 
 List all files created, organized by repo. Note any items from the plan not fully implemented and explain why.

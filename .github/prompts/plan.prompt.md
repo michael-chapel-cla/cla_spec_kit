@@ -73,7 +73,19 @@ These repos are designed to be cloned as siblings in the same parent directory. 
 
 ## WORKFLOW
 
-### Step 1 — Read all requirements
+### Step 1 — Load the coding standards
+
+Read all eight coding standards files before writing the plan. Every architectural decision, API design, DB schema, and file structure must conform to these rules — the `/create` agent will enforce them during scaffolding:
+- `/specs/context/01-security.md` — security rules (S01–S43)
+- `/specs/context/02-code-quality.md` — code quality rules (Q01–Q27)
+- `/specs/context/03-api-standards.md` — API standards (A01–A30)
+- `/specs/context/04-db-migrations.md` — DB migration rules (D01–D18)
+- `/specs/context/05-frontend.md` — frontend rules (F01–F15)
+- `/specs/context/06-framework.md` — framework usage rules (W01–W12)
+- `/specs/context/07-testing.md` — testing rules (T01–T15)
+- `/specs/context/08-accessibility.md` — accessibility rules (AX01–AX15)
+
+### Step 2 — Read all requirements
 
 Read every file in `/requirements/${input:appName}/`. Pay special attention to:
 - `LLD.md` — directory structure, API routes, domain entities, devcontainer services
@@ -81,7 +93,7 @@ Read every file in `/requirements/${input:appName}/`. Pay special attention to:
 - `HLD.md` — architectural decisions and module boundaries
 - `MVP_BUILD_SPEC.md` — what is in vs. out of scope for the first build
 
-### Step 2 — Review the tech stack templates
+### Step 3 — Review the tech stack templates
 
 Read the following to understand what must be customized:
 - `/templates/framework-nodejs-starter-kit/package.json`
@@ -90,11 +102,11 @@ Read the following to understand what must be customized:
 - `/templates/framework-react-starter-kit/public/static-config.json`
 - `/templates/helm/values.yaml`
 
-### Step 3 — Create the plans directory
+### Step 4 — Create the plans directory
 
 Create `/plans/${input:appName}/` if it does not exist.
 
-### Step 4 — Write PLAN.md
+### Step 5 — Write PLAN.md
 
 Create `/plans/${input:appName}/PLAN.md` with ALL of the following sections:
 
@@ -356,6 +368,6 @@ docker compose up
 
 ---
 
-### Step 5 — Confirm completion
+### Step 6 — Confirm completion
 
 Output a summary confirming `PLAN.md` was created. List any open questions or assumptions that the `/create` agent will need to handle. Flag any requirements that were unclear or conflicting.
