@@ -38,9 +38,30 @@ All apps built with this spec-kit use a fixed stack. Write all technical section
 
 ### Step 1 — Read the idea files
 
-Read the file at `/ideas/${input:appName}/ideas.md`. This contains the idea description, feature notes, and context the creator provided.
+Scan `ideas/${input:appName}/` for all files. Read them in this order:
 
-Also check for any image files (PNG, JPG, JPEG, WEBP, PDF) in `/ideas/${input:appName}/`. If any exist, read them — they may be Figma mockups, wireframes, or UI sketches. Incorporate them as visual context when writing requirements.
+1. **`ideas.md`** (required) — the primary idea file; if missing, stop and report an error.
+2. **Any other `.md` files** in the same directory — treat these as supplementary context that expands or refines the primary idea. Common examples:
+   - `technical-constraints.md` — infrastructure limits, integration requirements, or non-negotiable tech choices
+   - `competitor-notes.md` — detailed competitive analysis or positioning research
+   - `personas.md` — extended user research or role definitions
+   - `open-questions.md` — unresolved design decisions to flag in the requirements
+   - Any other `.md` files the author has placed there
+
+   Merge supplementary files with `ideas.md`: content from supplementary files folds into whichever requirement documents it is most relevant to. Do not treat supplementary files as separate sections — synthesise them. If a supplementary file contradicts `ideas.md`, flag the conflict in a comment in the relevant requirement document.
+
+3. **Any image files (PNG, JPG, JPEG, WEBP, PDF)** — Figma exports, wireframes, or UI sketches. Treat them as primary design input, not decoration.
+
+**When images are present, extract the following before writing any requirements:**
+
+- **Pages / screens** — list every distinct screen visible in the images; these become frontend pages in `LLD.md` and items in `MVP_BUILD_SPEC.md`
+- **Navigation structure** — note any nav bar, sidebar, tab bar, or breadcrumb visible; this defines the router structure in `LLD.md`
+- **UI components** — identify specific MUI components implied by the layout (DataGrid, Card, Tabs, Drawer, DatePicker, etc.); reference these in `LLD.md` under the relevant page
+- **Data displayed** — columns in tables, fields in forms, and labels on cards reveal the domain entities and their attributes; use these to strengthen `DATA_MODEL.md`
+- **User roles implied by UI** — separate dashboards, admin panels, or role-specific screens indicate distinct personas; add them to `CUSTOMER_PERSONAS.md`
+- **Flows visible in the images** — if the images show a multi-step form, modal, or approval sequence, document that flow in `HLD.md` under "Core flow"
+
+If images conflict with or add to what is described in `ideas.md`, images take precedence for layout and scope — the author drew what they actually want.
 
 ### Step 2 — Review the example requirements
 

@@ -54,12 +54,12 @@ New commands and improvements that make the tool faster and more reliable to use
 
 | # | Item | Status |
 |---|---|---|
-| 3.1 | `/iterate <app> <feature>` prompt — adds a new feature to an already-scaffolded app: reads the existing plan, generates a feature branch plan, scaffolds the new routes/service/page | ⬜ |
-| 3.2 | `/audit-idea <app>` prompt — pre-flight check on `ideas.md` before running `/design`; flags missing sections, vague scope, or missing out-of-scope definition | ⬜ |
-| 3.3 | Image-first design support — improve `/design` handling of Figma screenshots to extract page layout, navigation, and component names directly into `LLD.md` and `CUSTOMER_PERSONAS.md` | ⬜ |
-| 3.4 | `ideas/README.md` — add a second `ideas.md` template for API-only apps (no frontend) | ⬜ |
-| 3.5 | Multi-idea support — allow `ideas/<app>/` to contain multiple `*.md` files merged by `/design` (e.g., `ideas.md` + `technical-constraints.md` + `competitor-notes.md`) | ⬜ |
-| 3.6 | `/validate` — extend to audit the three-repo docker-compose files (correct Flyway mount, no hardcoded env values, health checks present) | ⬜ |
+| 3.1 | `/iterate <app> <feature>` prompt — adds a new feature to an already-scaffolded app: reads the existing plan, generates a feature branch plan, scaffolds the new routes/service/page | ✅ |
+| 3.2 | `/audit-idea <app>` prompt — pre-flight check on `ideas.md` before running `/design`; flags missing sections, vague scope, or missing out-of-scope definition | ✅ |
+| 3.3 | Image-first design support — improve `/design` handling of Figma screenshots to extract page layout, navigation, and component names directly into `LLD.md` and `CUSTOMER_PERSONAS.md` | ✅ |
+| 3.4 | `ideas/README.md` — add a second `ideas.md` template for API-only apps (no frontend) | ✅ |
+| 3.5 | Multi-idea support — allow `ideas/<app>/` to contain multiple `*.md` files merged by `/design` (e.g., `ideas.md` + `technical-constraints.md` + `competitor-notes.md`) | ✅ |
+| 3.6 | `/validate` — extend to audit the three-repo docker-compose files (correct Flyway mount, no hardcoded env values, health checks present) | ✅ |
 
 ---
 

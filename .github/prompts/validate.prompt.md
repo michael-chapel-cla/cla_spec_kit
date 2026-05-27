@@ -21,6 +21,7 @@ Read the following to understand what was built:
 - `/repos/web-api-${input:appName}/.env.example`
 - `/repos/web-api-${input:appName}/docker-compose.yml`
 - `/repos/db-${input:appName}/docker-compose.yml`
+- `/repos/web-${input:appName}/docker-compose.yml` (if present)
 - All TypeScript files under `/repos/web-${input:appName}/src/`
 
 ---
@@ -103,6 +104,14 @@ Run audits in this order, checking the relevant files for every rule in the load
 - `static-config.json` missing required fields (F09)
 - All other rules in 05-frontend.md
 
+**Docker Compose audit** — scan `web-api-${input:appName}/docker-compose.yml`, `db-${input:appName}/docker-compose.yml`, and `web-${input:appName}/docker-compose.yml` (if present):
+- Flyway mount in `web-api-*/docker-compose.yml` points to `../db-${input:appName}/migrations` not `./migrations` — a wrong path silently runs stale migrations (DC01, CRITICAL)
+- No hardcoded passwords or secrets in any compose file — all sensitive values must use `${VAR}` substitution syntax (DC02, CRITICAL)
+- MSSQL service has a `healthcheck` block (DC03, HIGH)
+- Flyway service has `depends_on` with `condition: service_healthy` on the db service (DC04, HIGH)
+- Each repo's compose file only defines the services relevant to that repo — db compose should not start the API, api compose should not start the frontend (DC05, MEDIUM)
+- No `trustServerCertificate=true` in Flyway JDBC URL in production-targeted compose files (DC06, MEDIUM — acceptable in `docker-compose.override.yml` or dev-only files)
+
 **Framework compliance audit** (06-framework.md) — scan `web-api-${input:appName}/src/app.ts`, all route files, `web-${input:appName}/src/App.tsx`, `web-${input:appName}/src/router.tsx`, and all `eslint.config.*` files:
 - App created without `FrameworkFastify.create()` (W01)
 - Config not initialised with `framework.initAppConfig()` (W02)
@@ -156,6 +165,11 @@ Format the report exactly as shown below:
 | Severity | Rule | File | Finding |
 |---|---|---|---|
 
+### Docker Compose
+
+| Severity | Rule | File | Finding |
+|---|---|---|---|
+
 ### Frontend
 
 | Severity | Rule | File | Finding |
@@ -174,6 +188,7 @@ Format the report exactly as shown below:
 | Code Quality | 0 | 0 | 0 | 0 |
 | API Standards | 0 | 0 | 0 | 0 |
 | DB Migrations | 0 | 0 | 0 | 0 |
+| Docker Compose | 0 | 0 | 0 | 0 |
 | Frontend | 0 | 0 | 0 | 0 |
 | Framework Compliance | 0 | 0 | 0 | 0 |
 | **Total** | **0** | **0** | **0** | **0** |
