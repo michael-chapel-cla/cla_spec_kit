@@ -13,7 +13,7 @@ web-expense-flow/        ← React 18 + Vite + MUI
 db-expense-flow/         ← Flyway migrations and seeds
 ```
 
-Each repo has its own devcontainer, docker-compose, azure-pipelines.yml, and Helm chart.
+Each repo has its own devcontainer, docker-compose, `.github/workflows/ci.yml`, and Helm chart.
 
 ### Local development model
 

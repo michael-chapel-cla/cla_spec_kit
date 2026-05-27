@@ -1,32 +1,45 @@
 ---
 name: spec-kit-validate
-description: Run /validate <app-name> — audit generated app against coding standards and produce scored compliance report
+description: Run /validate <app-name> — audit generated app against coding standards, produce scored report
 category: software-development
 ---
 
-# Spec Kit — /validate Command
+Audit **${input:appName}** against the organization's coding standards and produce a scored compliance report.
 
-Run this when the user says "validate <app-name>" or "/validate <app-name>".
+---
 
-## Workflow
+## WORKFLOW
 
 ### Step 1 — Read the application
-Read:
-- All TypeScript files under `/repos/<app-name>/backend/src/`
-- All SQL files under `/repos/<app-name>/db/migrations/`
-- `/repos/<app-name>/backend/docs/openapi.yaml`
-- `/repos/<app-name>/backend/.env.example`
-- `/repos/<app-name>/docker-compose.yml`
-- All TypeScript files under `/repos/<app-name>/frontend/src/`
 
-### Step 2 — Load audit rules
-Read all four context files:
+Read the following to understand what was built:
+- All TypeScript files under `/repos/web-api-${input:appName}/src/`
+- All SQL files under `/repos/db-${input:appName}/migrations/`
+- `/repos/web-api-${input:appName}/docs/openapi.yaml`
+- `/repos/web-api-${input:appName}/.env.example`
+- `/repos/web-api-${input:appName}/docker-compose.yml`
+- `/repos/db-${input:appName}/docker-compose.yml`
+- `/repos/web-${input:appName}/docker-compose.yml` (if present)
+- All TypeScript files under `/repos/web-${input:appName}/src/`
+
+---
+
+### Step 2 — Load the audit rules
+
+Read all eight audit context files:
 - `/specs/context/01-security.md`
 - `/specs/context/02-code-quality.md`
 - `/specs/context/03-api-standards.md`
 - `/specs/context/04-db-migrations.md`
+- `/specs/context/05-frontend.md`
+- `/specs/context/06-framework.md`
+- `/specs/context/07-testing.md`
+- `/specs/context/08-accessibility.md`
 
-### Step 3 — Run audits
+---
+
+### Step 3 — Run the audits
+
 Score each finding using this scale:
 
 | Severity | Deduction |
@@ -39,9 +52,9 @@ Score each finding using this scale:
 
 Starting score: **100**. Minimum: **0**.
 
-Run audits in this order, checking relevant files for every rule in loaded context files:
+Run audits in this order, checking the relevant files for every rule in the loaded context files:
 
-**Security audit** (01-security.md) — scan all backend TypeScript, SQL files, config files, `.env.example`:
+**Security audit** (01-security.md) — scan `web-api-${input:appName}/src/`, `db-${input:appName}/migrations/`, and `web-api-${input:appName}/.env.example`:
 - Hardcoded secrets (S03, S09)
 - SQL string concatenation (S04)
 - JWT verification missing algorithm, issuer, or audience (S07, S13)
@@ -52,7 +65,7 @@ Run audits in this order, checking relevant files for every rule in loaded conte
 - Stack traces in error responses (S12)
 - All other rules in 01-security.md
 
-**Code quality audit** (02-code-quality.md) — scan all TypeScript files:
+**Code quality audit** (02-code-quality.md) — scan all TypeScript files in `web-api-${input:appName}/src/` and `web-${input:appName}/src/`:
 - TypeScript `any` usage (Q01)
 - `console.log` in production code (Q03)
 - `.then()/.catch()` chains instead of async/await (Q05)
@@ -60,7 +73,7 @@ Run audits in this order, checking relevant files for every rule in loaded conte
 - `useEffect` missing dependencies (Q12)
 - All other rules in 02-code-quality.md
 
-**API standards audit** (03-api-standards.md) — scan routes, openapi.yaml, error handlers:
+**API standards audit** (03-api-standards.md) — scan `web-api-${input:appName}/src/features/`, `web-api-${input:appName}/docs/openapi.yaml`, and `web-api-${input:appName}/postman/`:
 - Missing or incomplete openapi.yaml (A01, A02)
 - Missing URI versioning (A03)
 - Verbs in URL paths (A04)
@@ -71,7 +84,7 @@ Run audits in this order, checking relevant files for every rule in loaded conte
 - Missing Postman collection (A26)
 - All other rules in 03-api-standards.md
 
-**DB migrations audit** (04-db-migrations.md) — scan all `.sql` files in `db/migrations/`:
+**DB migrations audit** (04-db-migrations.md) — scan all `.sql` files in `db-${input:appName}/migrations/`:
 - Naming convention violations (D01)
 - Duplicate version numbers (D02)
 - `SELECT *` in migrations (D05)
@@ -79,23 +92,83 @@ Run audits in this order, checking relevant files for every rule in loaded conte
 - `flyway.conf` committed with credentials (D09)
 - All other rules in 04-db-migrations.md
 
-### Step 4 — Output report
-Format exactly:
+**Frontend audit** (05-frontend.md) — scan all TypeScript/TSX files in `web-${input:appName}/src/`:
+- Direct API calls inside React components instead of service layer (F01)
+- `useEffect` missing dependency arrays or incorrect deps (F02)
+- Timers/subscriptions not cleaned up in useEffect (F03)
+- Array index used as React list key (F04)
+- Hardcoded `clientId`, `authority`, or scope URI literals in source (F05)
+- Protected routes missing `loader: requireAuth()` (F06)
+- Auth logic reimplemented instead of using `framework-react-core` (F07)
+- `RouterProvider` not wrapped in `ThemeProvider` with `claTheme` (F08)
+- `static-config.json` missing required fields (F09)
+- All other rules in 05-frontend.md
+
+**Docker Compose audit** — scan `web-api-${input:appName}/docker-compose.yml`, `db-${input:appName}/docker-compose.yml`, and `web-${input:appName}/docker-compose.yml` (if present):
+- Flyway mount in `web-api-*/docker-compose.yml` points to `../db-${input:appName}/migrations` not `./migrations` — a wrong path silently runs stale migrations (DC01, CRITICAL)
+- No hardcoded passwords or secrets in any compose file — all sensitive values must use `${VAR}` substitution syntax (DC02, CRITICAL)
+- MSSQL service has a `healthcheck` block (DC03, HIGH)
+- Flyway service has `depends_on` with `condition: service_healthy` on the db service (DC04, HIGH)
+- Each repo's compose file only defines the services relevant to that repo — db compose should not start the API, api compose should not start the frontend (DC05, MEDIUM)
+- No `trustServerCertificate=true` in Flyway JDBC URL in production-targeted compose files (DC06, MEDIUM — acceptable in `docker-compose.override.yml` or dev-only files)
+
+**Testing audit** (07-testing.md) — scan `web-api-${input:appName}/tests/`, `web-${input:appName}/test/`, and all `vitest.config.ts` files:
+- Every `.service.ts` has a corresponding `.service.test.ts` (T01)
+- Every `.routes.ts` has a corresponding `.routes.test.ts` (T02)
+- No `test.only` or `describe.only` in committed test files (T03)
+- No `vi.mock('mssql')` in integration tests (T07)
+- `vitest.config.ts` has coverage thresholds set to ≥ 85 for all four metrics (T10)
+- All test blocks contain at least one `expect()` call (T14)
+- All other rules in 07-testing.md
+
+**Accessibility audit** (08-accessibility.md) — scan all `.tsx` files in `web-${input:appName}/src/`:
+- `<div onClick>` or `<span onClick>` without `role` and `tabIndex={0}` (AX01)
+- `<img>` missing `alt` attribute (AX02)
+- MUI `TextField`, `Select`, `Checkbox` missing `label` prop (AX03)
+- `<IconButton>` missing `aria-label` (AX04)
+- Error messages not using MUI `helperText` + `error` props (AX05)
+- Status indicators using color alone with no icon or text (AX06)
+- MUI `Dialog` missing `aria-labelledby` (AX09)
+- MUI `Tab` missing `id` and `aria-controls`; TabPanel missing `aria-labelledby` (AX10)
+- DataGrid column definitions missing `headerName` (AX11)
+- `outline: none` with no `focus-visible` replacement (AX14)
+- All other rules in 08-accessibility.md
+
+**Framework compliance audit** (06-framework.md) — scan `web-api-${input:appName}/src/app.ts`, all route files, `web-${input:appName}/src/App.tsx`, `web-${input:appName}/src/router.tsx`, and all `eslint.config.*` files:
+- App created without `FrameworkFastify.create()` (W01)
+- Config not initialised with `framework.initAppConfig()` (W02)
+- `useEnvironmentVariables` not `true` (W03)
+- Route plugin not registered with `prefix` (W04)
+- Route plugin signature missing `{ db }` in options (W05)
+- `framework.start()` not called or called before plugins registered (W06)
+- Admin routes using bare `authMiddleware` instead of `requireScope()` (W07)
+- Protected routes missing `loader: requireAuth()` (W08)
+- Auth logic reimplemented instead of `framework-react-core` (W09)
+- `RouterProvider` outside `ThemeProvider` with `claTheme` (W10)
+- `claTheme`/`claDarkTheme` not imported from `lib-seamlesscomponents-react` (W11)
+- ESLint config not extending `framework-eslint-config` (W12)
+- All other rules in 06-framework.md
 
 ---
 
-## Audit Report: <app-name>
+### Step 4 — Output the report
+
+Format the report exactly as shown below:
+
+---
+
+## Audit Report: ${input:appName}
 
 **Final Score: XX/100**
 **Status: PASS / REVIEW / FAIL**
 
-> PASS = 90+ | REVIEW = 70–89 (fix HIGH/CRITICAL before merge) | FAIL = <70 (must fix CRITICAL and HIGH)
+> PASS = 90+  |  REVIEW = 70–89 (fix HIGH/CRITICAL before merge)  |  FAIL = <70 (must fix CRITICAL and HIGH)
 
 ### Security
 
 | Severity | Rule | File | Finding |
 |---|---|---|---|
-| CRITICAL | S04 | `backend/src/features/users/v1/users.service.ts:42` | SQL string concatenation in `getUser()` |
+| CRITICAL | S04 | `web-api-.../src/features/users/v1/users.service.ts:42` | SQL string concatenation in `getUser()` |
 
 *(If no findings: "No issues found.")*
 
@@ -114,6 +187,31 @@ Format exactly:
 | Severity | Rule | File | Finding |
 |---|---|---|---|
 
+### Docker Compose
+
+| Severity | Rule | File | Finding |
+|---|---|---|---|
+
+### Frontend
+
+| Severity | Rule | File | Finding |
+|---|---|---|---|
+
+### Framework Compliance
+
+| Severity | Rule | File | Finding |
+|---|---|---|---|
+
+### Testing
+
+| Severity | Rule | File | Finding |
+|---|---|---|---|
+
+### Accessibility
+
+| Severity | Rule | File | Finding |
+|---|---|---|---|
+
 ### Summary
 
 | Category | CRITICAL | HIGH | MEDIUM | LOW |
@@ -122,6 +220,11 @@ Format exactly:
 | Code Quality | 0 | 0 | 0 | 0 |
 | API Standards | 0 | 0 | 0 | 0 |
 | DB Migrations | 0 | 0 | 0 | 0 |
+| Docker Compose | 0 | 0 | 0 | 0 |
+| Frontend | 0 | 0 | 0 | 0 |
+| Framework Compliance | 0 | 0 | 0 | 0 |
+| Testing | 0 | 0 | 0 | 0 |
+| Accessibility | 0 | 0 | 0 | 0 |
 | **Total** | **0** | **0** | **0** | **0** |
 
 **Score breakdown**: started 100 — deducted X for [list findings] = **XX/100**

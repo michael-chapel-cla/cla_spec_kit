@@ -105,7 +105,7 @@
 ├── .devcontainer/devcontainer.json
 ├── .env.example
 ├── docker-compose.yml
-├── azure-pipelines.yml
+└── .github/workflows/ci.yml
 ├── package.json
 └── .github/copilot-instructions.md
 
@@ -160,7 +160,7 @@
 │   └── values-prd.yaml
 ├── .devcontainer/devcontainer.json
 ├── docker-compose.yml
-├── azure-pipelines.yml
+└── .github/workflows/ci.yml
 ├── package.json
 └── .github/copilot-instructions.md
 ```

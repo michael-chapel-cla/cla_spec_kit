@@ -42,7 +42,7 @@ coverage/
 repos/
 
 # Re-include the expense-flow example repos so teams can see a working scaffold
-!repos/
+!repos/README.md
 !repos/web-api-expense-flow/
 !repos/web-api-expense-flow/**
 !repos/web-expense-flow/
