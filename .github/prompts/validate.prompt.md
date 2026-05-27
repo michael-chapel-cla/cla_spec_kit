@@ -27,11 +27,13 @@ Read the following to understand what was built:
 
 ### Step 2 — Load the audit rules
 
-Read all four audit context files:
+Read all six audit context files:
 - `/specs/context/01-security.md`
 - `/specs/context/02-code-quality.md`
 - `/specs/context/03-api-standards.md`
 - `/specs/context/04-db-migrations.md`
+- `/specs/context/05-frontend.md`
+- `/specs/context/06-framework.md`
 
 ---
 
@@ -89,6 +91,33 @@ Run audits in this order, checking the relevant files for every rule in the load
 - `flyway.conf` committed with credentials (D09)
 - All other rules in 04-db-migrations.md
 
+**Frontend audit** (05-frontend.md) — scan all TypeScript/TSX files in `web-${input:appName}/src/`:
+- Direct API calls inside React components instead of service layer (F01)
+- `useEffect` missing dependency arrays or incorrect deps (F02)
+- Timers/subscriptions not cleaned up in useEffect (F03)
+- Array index used as React list key (F04)
+- Hardcoded `clientId`, `authority`, or scope URI literals in source (F05)
+- Protected routes missing `loader: requireAuth()` (F06)
+- Auth logic reimplemented instead of using `framework-react-core` (F07)
+- `RouterProvider` not wrapped in `ThemeProvider` with `claTheme` (F08)
+- `static-config.json` missing required fields (F09)
+- All other rules in 05-frontend.md
+
+**Framework compliance audit** (06-framework.md) — scan `web-api-${input:appName}/src/app.ts`, all route files, `web-${input:appName}/src/App.tsx`, `web-${input:appName}/src/router.tsx`, and all `eslint.config.*` files:
+- App created without `FrameworkFastify.create()` (W01)
+- Config not initialised with `framework.initAppConfig()` (W02)
+- `useEnvironmentVariables` not `true` (W03)
+- Route plugin not registered with `prefix` (W04)
+- Route plugin signature missing `{ db }` in options (W05)
+- `framework.start()` not called or called before plugins registered (W06)
+- Admin routes using bare `authMiddleware` instead of `requireScope()` (W07)
+- Protected routes missing `loader: requireAuth()` (W08)
+- Auth logic reimplemented instead of `framework-react-core` (W09)
+- `RouterProvider` outside `ThemeProvider` with `claTheme` (W10)
+- `claTheme`/`claDarkTheme` not imported from `lib-seamlesscomponents-react` (W11)
+- ESLint config not extending `framework-eslint-config` (W12)
+- All other rules in 06-framework.md
+
 ---
 
 ### Step 4 — Output the report
@@ -108,7 +137,7 @@ Format the report exactly as shown below:
 
 | Severity | Rule | File | Finding |
 |---|---|---|---|
-| CRITICAL | S04 | `backend/src/features/users/v1/users.service.ts:42` | SQL string concatenation in `getUser()` |
+| CRITICAL | S04 | `web-api-.../src/features/users/v1/users.service.ts:42` | SQL string concatenation in `getUser()` |
 
 *(If no findings: "No issues found.")*
 
@@ -127,6 +156,16 @@ Format the report exactly as shown below:
 | Severity | Rule | File | Finding |
 |---|---|---|---|
 
+### Frontend
+
+| Severity | Rule | File | Finding |
+|---|---|---|---|
+
+### Framework Compliance
+
+| Severity | Rule | File | Finding |
+|---|---|---|---|
+
 ### Summary
 
 | Category | CRITICAL | HIGH | MEDIUM | LOW |
@@ -135,6 +174,8 @@ Format the report exactly as shown below:
 | Code Quality | 0 | 0 | 0 | 0 |
 | API Standards | 0 | 0 | 0 | 0 |
 | DB Migrations | 0 | 0 | 0 | 0 |
+| Frontend | 0 | 0 | 0 | 0 |
+| Framework Compliance | 0 | 0 | 0 | 0 |
 | **Total** | **0** | **0** | **0** | **0** |
 
 **Score breakdown**: started 100 — deducted X for [list findings] = **XX/100**
