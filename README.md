@@ -7,17 +7,22 @@ An "easy button" for starting new applications on the organization's fixed stack
 ## How It Works
 
 ```
-You write an idea  →  /design  →  /plan  →  /create  →  Copilot builds features
+You write an idea  →  /design  →  /plan  →  /create  →  /validate  →  Copilot builds features
 ```
 
-| Stage | Copilot Agent Prompt | Input | Output |
+| Stage | Command | Input | Output |
 |---|---|---|---|
 | 1 | `/design` | `ideas/<app-name>/ideas.md` (+ optional images) | 16 requirement documents in `requirements/<app-name>/` |
 | 2 | `/plan` | The requirements from Stage 1 | `plans/<app-name>/PLAN.md` |
-| 3 | `/create` | The plan from Stage 2 | Full app scaffold in `repos/<app-name>/` |
-| 4 | Copilot Chat (ongoing) | The scaffold + `.github/copilot-instructions.md` | Feature development |
+| 3 | `/create` | The plan from Stage 2 | Three repos: `web-api-<app>/`, `web-<app>/`, `db-<app>/` |
+| 4 | `/validate` | The generated repos | Scored compliance report (security, quality, API, DB, frontend, framework) |
+| 5 | Copilot Chat (ongoing) | The scaffold + `.github/copilot-instructions.md` | Feature development |
 
-All three commands are **GitHub Copilot reusable prompts** defined in `.github/prompts/`. They run in Copilot Chat agent mode — Copilot will prompt you for the app name and then execute the full workflow. Everything after scaffolding continues in Copilot Chat using `.github/copilot-instructions.md` for stack rules and coding standards.
+The commands are available two ways:
+- **GitHub Copilot agent prompts** in `.github/prompts/` — run in Copilot Chat agent mode, Copilot prompts for the app name
+- **Claude Code slash commands** in `.claude/commands/` — run as `/design <app-name>` directly in Claude Code
+
+Everything after scaffolding continues in Copilot Chat (or Claude Code) using `.github/copilot-instructions.md` for stack rules and coding standards.
 
 ---
 
@@ -171,7 +176,22 @@ The scaffold includes:
 
 ---
 
-### 5. Continue Development with GitHub Copilot
+### 5. Validate the Scaffold
+
+Run `/validate my-new-app` (Copilot) or `/validate my-new-app` (Claude Code) to audit the generated scaffold against all six coding standards. It produces a scored report (0–100) with findings grouped by category:
+
+- Security — hardcoded secrets, SQL injection, JWT validation, CORS, rate limiting
+- Code Quality — TypeScript `any`, `console.log`, async patterns, test coverage
+- API Standards — URI versioning, HTTP status codes, OpenAPI spec, Postman collection
+- DB Migrations — naming, `SELECT *`, transaction patterns, `flyway.conf` committed
+- Frontend — service layer, `requireAuth()` coverage, `static-config.json` fields
+- Framework Compliance — startup sequence, route plugin signature, `requireScope`, theme
+
+Fix any CRITICAL or HIGH findings before starting feature development.
+
+---
+
+### 6. Continue Development with GitHub Copilot
 
 The scaffold is ready for active development. Each generated app is an **independent repository candidate** — it is not committed to this spec-kit repo.
 
@@ -208,7 +228,7 @@ npm install
 npm run dev                # http://localhost:3000
 ```
 
-**Then use GitHub Copilot Chat to build features.** Copilot reads `.github/copilot-instructions.md` and applies the organization's coding standards automatically — you do not need to explain the stack or the rules.
+**Then use GitHub Copilot Chat or Claude Code to build features.** Both read `.github/copilot-instructions.md` (Copilot) or `.github/qwen-instructions.md` (local models via Claude Code) and apply the organization's coding standards automatically — you do not need to explain the stack or the rules.
 
 ---
 
@@ -223,6 +243,8 @@ The instructions file gives Copilot full context on every standard, with ❌/✅
 | **Code quality** | No TypeScript `any`, no `console.log`, async/await only, service layer required, 85% test coverage, React hook rules |
 | **Database** | Flyway migration naming, table schema standards, no `SELECT *`, transaction patterns, repeatable migrations for stored procedures |
 | **Authentication** | `framework-react-core` handles SPA auth (never reimplement), JWT bearer for API, Entra config from `static-config.json` |
+| **Frontend rules** | Service layer required (no API calls in components), `requireAuth()` on all protected routes, `static-config.json` required fields, explicit return types, default exports on pages only |
+| **Framework compliance** | `FrameworkFastify.create()` startup sequence, route plugin signature with `{ db }`, `requireScope` for role-gated routes, `claTheme` via `lib-seamlesscomponents-react`, `framework-eslint-config` in all repos |
 
 ---
 
@@ -230,6 +252,8 @@ The instructions file gives Copilot full context on every standard, with ❌/✅
 
 ```
 cla_spec_kit/
+├── CLAUDE.md             ← Scopes Claude Code to the four spec-kit commands
+├── AGENTS.md             ← AI agent context and guardrails
 ├── ideas/                ← YOU CREATE: ideas/<app-name>/ideas.md + optional images
 ├── requirements/         ← /design writes here
 │   └── expense-flow/     ← 16 reference documents showing expected output
@@ -240,11 +264,20 @@ cla_spec_kit/
 │   ├── CODE_QUALITY_SPECS.md
 │   ├── FLYWAY_DB_SPECS.md
 │   ├── FRAMEWORK_SPECS.md
-│   └── context/          ← Distilled audit rules embedded in the agent commands
-└── templates/            ← Starter templates used by /create (read-only)
-    ├── framework-nodejs-starter-kit/
-    ├── framework-react-starter-kit/
-    └── helm/             ← Helm chart template for AKS deployment
+│   └── context/          ← 6 distilled audit rule files used by /validate
+│       ├── 01-security.md
+│       ├── 02-code-quality.md
+│       ├── 03-api-standards.md
+│       ├── 04-db-migrations.md
+│       ├── 05-frontend.md
+│       └── 06-framework.md
+├── templates/            ← Starter templates used by /create (read-only)
+│   ├── framework-nodejs-starter-kit/
+│   ├── framework-react-starter-kit/
+│   ├── framework-db-starter-kit/  ← Flyway + docker-compose template for db-<app> repos
+│   └── helm/             ← Helm chart template for AKS deployment
+└── .claude/
+    └── commands/         ← Claude Code slash commands (/design, /plan, /create, /validate)
 ```
 
 ---
