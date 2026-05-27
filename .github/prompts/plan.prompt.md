@@ -149,7 +149,8 @@ Show the COMPLETE file tree for all three repos. Expand every feature folder, pa
 │           └── error.handler.ts
 ├── docs/
 │   ├── openapi.yaml
-│   └── ops/runbook.md
+│   ├── ops/runbook.md
+│   └── spec/               ← requirements + plan copied from spec-kit
 ├── postman/
 │   ├── collections/<app-name>.json
 │   └── environments/<app-name>-local.postman_environment.json
@@ -170,6 +171,7 @@ Show the COMPLETE file tree for all three repos. Expand every feature folder, pa
 │   ├── V1.0.0__create_schema.sql
 │   └── V1.0.1__create_<tables>.sql
 ├── seeds/
+├── docs/spec/              ← requirements + plan copied from spec-kit
 ├── .devcontainer/devcontainer.json
 ├── docker-compose.yml
 ├── flyway.conf.example
@@ -186,6 +188,7 @@ Show the COMPLETE file tree for all three repos. Expand every feature folder, pa
 │   │   └── <feature>.types.ts
 │   └── router.tsx
 ├── public/static-config.json
+├── docs/spec/              ← requirements + plan copied from spec-kit
 ├── test/unit/
 ├── helm/
 │   ├── Chart.yaml

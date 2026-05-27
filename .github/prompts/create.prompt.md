@@ -32,8 +32,11 @@ These rules are non-negotiable. Every file you generate must conform to them.
 web-api-<app-name>/
 ├── docs/
 │   ├── openapi.yaml            ← OpenAPI 3.0.3 — written before implementation
-│   └── ops/
-│       └── runbook.md
+│   ├── ops/
+│   │   └── runbook.md
+│   └── spec/                   ← requirements + plan copied from spec-kit
+│       ├── requirements/       ← all 16 files from requirements/<app-name>/
+│       └── PLAN.md             ← copy of plans/<app-name>/PLAN.md
 ├── postman/
 │   ├── collections/
 │   │   └── <app-name>.json
@@ -869,7 +872,25 @@ Create a new file in `migrations/` — never edit an existing applied file.
 
 ---
 
-### Step 8 — Self-audit
+### Step 8 — Copy requirements and plan into each repo
+
+Copy the spec context into all three repos so developers have full background without needing access to the spec-kit:
+
+**API repo** — copy into `web-api-${input:appName}/docs/spec/`:
+- All files from `requirements/${input:appName}/` → `docs/spec/requirements/`
+- `plans/${input:appName}/PLAN.md` → `docs/spec/PLAN.md`
+
+**Frontend repo** — copy into `web-${input:appName}/docs/spec/`:
+- All files from `requirements/${input:appName}/` → `docs/spec/requirements/`
+- `plans/${input:appName}/PLAN.md` → `docs/spec/PLAN.md`
+
+**DB repo** — copy into `db-${input:appName}/docs/spec/`:
+- All files from `requirements/${input:appName}/` → `docs/spec/requirements/`
+- `plans/${input:appName}/PLAN.md` → `docs/spec/PLAN.md`
+
+---
+
+### Step 9 — Self-audit
 
 Verify before reporting complete:
 
@@ -895,9 +916,10 @@ Verify before reporting complete:
 20. `postman/environments/${input:appName}-local.postman_environment.json` exists in `web-api-${input:appName}/`
 21. Every backend feature has a test stub in `web-api-${input:appName}/tests/unit/`
 22. Every frontend page has a test stub in `web-${input:appName}/test/unit/`
+23. `docs/spec/requirements/` and `docs/spec/PLAN.md` exist in all three repos
 
 Report any gaps found.
 
-### Step 9 — Output summary
+### Step 10 — Output summary
 
 List all files created, organized by repo. Note any items from the plan not fully implemented and explain why.

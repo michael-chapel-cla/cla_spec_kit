@@ -165,6 +165,7 @@ The scaffold includes:
 - Auth middleware with full JWT validation (RS256, issuer, audience)
 - DB client with connection pooling and parameterized query helpers
 - `docs/openapi.yaml` for all endpoints (written before route code — contract-first)
+- `docs/spec/` in every repo — full requirements and plan copied in for developer context
 - Postman collection with test scripts
 - Unprotected `GET /health` and `GET /health/ready` endpoints
 - Flyway migrations for every table in the data model
