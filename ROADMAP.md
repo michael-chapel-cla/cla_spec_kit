@@ -156,3 +156,18 @@ The spec-kit has no automated tests of its own. A broken prompt or template chan
 |---|---|---|
 | 11.1 | End-to-end test fixture — `ideas/ci-test-app/ideas.md` with a minimal but complete idea; checked in as a permanent test fixture | ⬜ |
 | 11.2 | GitHub Actions E2E workflow — on every PR that touches a prompt file or template: runs `/design`, `/plan`, `/create`, and `/validate` on `ci-test-app` in sequence, asserts validate score ≥ 90, deletes the test repos on success | ⬜ |
+
+---
+
+## Phase 12 — Azure DevOps Integration
+
+Work items, features, and epics already exist in ADO — developers shouldn't have to rewrite them into an ideas file by hand. This phase adds a command that connects to ADO via an MCP server and pulls work item content directly into the spec-kit workflow.
+
+| # | Item | Status |
+|---|---|---|
+| 12.1 | Azure DevOps MCP server configuration — document and standardize the ADO MCP server connection in `.mcp.json` so it is available to both GitHub Copilot and Claude Code when working in this repo | ⬜ |
+| 12.2 | `/import-ado <app-name> <work-item-id>` command — connects to the ADO MCP server, reads the target Epic or Feature (title, description, acceptance criteria, child user stories, tags, and linked items), and generates a fully structured `ideas/<app-name>/ideas.md` from the work item content | ⬜ |
+| 12.3 | Child item traversal — when the target work item is an Epic, `/import-ado` walks child Features and their child User Stories to populate key features, personas, and out-of-scope constraints automatically | ⬜ |
+| 12.4 | Supplementary file generation — when ADO work items contain technical notes, constraints, or linked specification documents, `/import-ado` writes these as supplementary `.md` files alongside `ideas.md` (e.g., `technical-constraints.md`) rather than cramming everything into one file | ⬜ |
+| 12.5 | Round-trip traceability — embed the source ADO work item ID and URL in the generated `ideas.md` front matter so the requirement documents and scaffold remain traceable back to the originating ADO item | ⬜ |
+| 12.6 | `/audit-idea` ADO awareness — when `ideas.md` contains an ADO source reference, `/audit-idea` can optionally re-fetch the work item to check whether the ADO description has changed since the idea was imported and flag drift | ⬜ |
