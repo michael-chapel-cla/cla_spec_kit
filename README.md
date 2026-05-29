@@ -248,7 +248,7 @@ npm run dev                # http://localhost:3000
 
 **Adding features after launch**: run `/iterate my-new-app <feature-name>` to scaffold a new feature into the existing repos — it reads the current codebase, plans the migration + API + frontend page, writes all the files, and runs a self-audit.
 
-**Then use GitHub Copilot Chat or Claude Code to build features.** Both read `.github/copilot-instructions.md` (Copilot) or `.github/qwen-instructions.md` (local models via Claude Code) and apply the organization's coding standards automatically — you do not need to explain the stack or the rules.
+**Then use GitHub Copilot Chat or Claude Code to build features.** Both read `.github/copilot-instructions.md` and apply the organization's coding standards automatically — you do not need to explain the stack or the rules.
 
 ---
 
