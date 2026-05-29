@@ -10,8 +10,11 @@ This repository is a spec-kit for rapid application scaffolding. When working in
 | `/plan <app-name>` | Reads all requirement documents and writes `plans/<app-name>/PLAN.md` |
 | `/create <app-name>` | Reads the plan and specs, scaffolds three repos in `repos/` |
 | `/validate <app-name>` | Audits a generated scaffold against the coding standards, produces a scored report |
+| `/convert <app-name>` | Reads a Lovable vibe-coded app from `lovable/<app-name>/`, generates a plan directly from the source (no design/requirements phase), and scaffolds three repos in `repos/` |
 
-Run them in order. Start by creating `ideas/<app-name>/ideas.md`.
+**Standard pipeline**: create `ideas/<app-name>/ideas.md` → run `/design` → `/plan` → `/create`.
+
+**Lovable pipeline**: drop Lovable export into `lovable/<app-name>/` → run `/convert`.
 
 ## What Claude must NOT do
 
@@ -24,10 +27,11 @@ Run them in order. Start by creating `ideas/<app-name>/ideas.md`.
 ## Directory reference
 
 ```
-ideas/           ← YOU CREATE: ideas/<app-name>/ideas.md + optional images
-requirements/    ← /design writes here
-plans/           ← /plan writes here
-repos/           ← /create writes here (three repos per app)
+ideas/           ← YOU CREATE: ideas/<app-name>/ideas.md + optional images  (standard pipeline)
+lovable/         ← YOU CREATE: lovable/<app-name>/ with Lovable export       (lovable pipeline)
+requirements/    ← /design and /convert write here
+plans/           ← /plan and /convert write here
+repos/           ← /create and /convert write here (three repos per app)
 specs/           ← Coding standards — read-only
 templates/       ← Starter templates — read-only
 ```
