@@ -293,6 +293,10 @@ ENTRA_AUDIENCE=<client-id>
 
 # CORS — comma-separated allowed origins
 CORS_ORIGINS=http://localhost:3000
+
+# NPM — private package registry token (required to install @cla/* packages)
+NPM_TOKEN=
+
 # (add any app-specific variables from the plan below this line)
 ```
 
@@ -830,9 +834,15 @@ See `docs/ops/runbook.md` for full setup steps.
 
 ```bash
 cp .env.example .env
-# edit .env
+# edit .env — at minimum set DB_PASSWORD and NPM_TOKEN
 docker compose up
 ```
+
+## NPM token
+
+`NPM_TOKEN` in `.env` is required to install private `@cla/*` packages from the internal registry. Docker uses it at build time — without it, `docker compose up` will fail during the `npm install` layer.
+
+Set it to your personal access token from the internal package registry. If you do not have one, request it from the platform team.
 ```
 
 **7b.** `/repos/web-${input:appName}/README.md`:
@@ -917,7 +927,7 @@ Verify before reporting complete:
 13. `web-api-${input:appName}/docker-compose.yml` mounts `../db-${input:appName}/migrations` for Flyway
 14. `db-${input:appName}/docker-compose.yml` mounts `./migrations` (standalone, self-contained)
 15. `web-${input:appName}/docker-compose.yml` contains only the frontend service
-16. `.env.example` exists in `web-api-${input:appName}/` and contains every environment variable in the plan
+16. `.env.example` exists in `web-api-${input:appName}/` and contains every environment variable in the plan, including `NPM_TOKEN=` (empty, with comment)
 17. `.github/workflows/ci.yml` in both `web-api-${input:appName}/` and `web-${input:appName}/` has no remaining `templateweb` references
 18. `.github/copilot-instructions.md` exists in all three repos with app-specific structure sections
 19. `.devcontainer/devcontainer.json` exists in all three repos

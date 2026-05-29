@@ -723,6 +723,9 @@ DB_USER=sa
 DB_PASSWORD=Change_Me_123!
 DB_PORT=1433
 
+# NPM — private package registry token (required to install @cla/* packages)
+NPM_TOKEN=
+
 # (add any app-specific variables from PLAN.md below this line)
 ```
 
@@ -1280,10 +1283,19 @@ Flyway migration scripts for the <App Name> application. These migrations are co
 ## Local development
 See `docs/ops/runbook.md` for full setup steps.
 
-**Requires `db-${input:appName}` cloned as a sibling directory.**
+**Requires `db-${input:appName}` cloned as a sibling directory** — docker-compose mounts migrations from `../db-${input:appName}/migrations`.
 
+```bash
 cp .env.example .env
+# edit .env — at minimum set DB_PASSWORD and NPM_TOKEN
 docker compose up
+```
+
+## NPM token
+
+`NPM_TOKEN` in `.env` is required to install private `@cla/*` packages from the internal registry. Docker uses it at build time — without it, `docker compose up` will fail during the `npm install` layer.
+
+Set it to your personal access token from the internal package registry. If you do not have one, request it from the platform team.
 ```
 
 **13b.** `/repos/web-${input:appName}/README.md`:
@@ -1353,7 +1365,7 @@ Verify before reporting complete:
 12. `web-api-${input:appName}/docker-compose.yml` mounts `../db-${input:appName}/migrations` for Flyway
 13. `db-${input:appName}/docker-compose.yml` mounts `./migrations` (standalone, self-contained)
 14. `web-${input:appName}/docker-compose.yml` contains only the frontend service
-15. `.env.example` exists in `web-api-${input:appName}/` and contains every environment variable in PLAN.md
+15. `.env.example` exists in `web-api-${input:appName}/` and contains every environment variable in PLAN.md, including `NPM_TOKEN=` (empty, with comment)
 16. `.github/workflows/ci.yml` in both `web-api-${input:appName}/` and `web-${input:appName}/` has no remaining `templateweb` references
 17. `.github/copilot-instructions.md` exists in all three repos with app-specific structure sections
 18. `.devcontainer/devcontainer.json` exists in all three repos
