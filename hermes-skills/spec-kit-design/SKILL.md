@@ -60,9 +60,30 @@ Scan `ideas/${input:appName}/` for all files. Read them in this order:
 
 If images conflict with or add to what is described in `ideas.md`, images take precedence for layout and scope — the author drew what they actually want.
 
-### Step 2 — Review the example requirements
+### Step 2 — Format and tone requirements
 
-Read all files in `/requirements/example/` to understand the expected format, depth, and tone for each document. Use these as the structural model — not as content to copy. The content must come from the ideas for ${input:appName}.
+Every output file must meet these standards before writing begins.
+
+**Structure:**
+- Each file is a standalone `.md` document — no code blocks containing bash, SQL, or TypeScript inside requirement documents (those belong in the plan)
+- Use markdown headings, bullet lists, and tables — no freeform prose paragraphs longer than 3–4 sentences
+- No agent meta-instructions, no "For Hermes" headers, no task execution steps, no verification commands in any output file
+
+**Content depth:**
+- Every section must be substantive and specific to ${input:appName} — derived from the idea, not generic filler
+- If the idea does not cover a section, make a clearly-labelled assumption rather than leaving placeholder text: `> **Assumption:** ...`
+- Technical documents (HLD, LLD, DATA_MODEL, SYSTEM_ARCHITECTURE) must reference the actual stack — specific library names, concrete port numbers, real naming conventions
+- Business documents (PRD, PITCH, EXECUTIVE_SUMMARY) must be grounded in the actual problem the app solves — no generic SaaS copy
+
+**Tone:**
+- Direct and specific: write "Users submit requests via a DataGrid form" not "the system enables users to manage their data"
+- Avoid marketing copy in technical documents; avoid jargon in business documents
+- Present tense, active voice throughout
+
+**Repo and path conventions:**
+- All three repo names follow: `web-api-${input:appName}`, `web-${input:appName}`, `db-${input:appName}`
+- All repo output paths are flat in `repos/`: `repos/web-api-${input:appName}/` — never nested under a subfolder
+- CI/CD references use `.github/workflows/ci.yml` — never `azure-pipelines.yml`
 
 ### Step 3 — Create the requirements directory
 

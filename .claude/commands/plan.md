@@ -4,7 +4,7 @@ Read `.github/prompts/plan.prompt.md` and execute every step it describes for th
 
 **Output:** `plans/$ARGUMENTS/PLAN.md` — a single architecture reference document
 
-**Format guardrails — the output must match `plans/expense-flow/PLAN.md` exactly:**
+**Format guardrails:**
 
 The PLAN.md is an **architecture reference document** consumed by `/create`. It is NOT a task execution plan for an agent.
 
