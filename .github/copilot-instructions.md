@@ -37,7 +37,7 @@ All code lives in `/repos/<app-name>/`. That is where you build.
 | Database | MSSQL (SQL Server) |
 | Migrations | Flyway — versioned SQL files in `db/migrations/` |
 | Local dev DB | SQL Server in Docker via `docker-compose.yml` |
-| Auth (backend) | Azure Entra — JWT bearer token validation |
+| Auth (backend) | Azure Entra via APIM — identity forwarded as trusted headers |
 | Deployment | AKS (Azure Kubernetes Service) via Helm |
 
 ---
@@ -252,7 +252,6 @@ Every API MUST expose:
 ❌ NEVER
 const apiKey = 'sk_live_abc123xyz789';
 const dbPassword = '123456';
-const jwtSecret = 'my-secret-key';
 
 ✅ ALWAYS
 const apiKey = process.env['API_KEY']!;
@@ -285,26 +284,16 @@ request.input('UserId', sql.Int, userId);
 const result = await request.query('SELECT * FROM Users WHERE Id = @UserId');
 ```
 
-### S07 / S13 — JWT Validation (All Claims Required)
+### S07 / S13 — Auth Is Handled at APIM
 
-**NEVER** call `jwt.verify()` without explicit algorithm, issuer, and audience:
+Authentication is handled entirely by Azure API Management before requests reach the API. **Never** implement token validation in API code. Read identity only from APIM-forwarded headers.
 
 ```typescript
-❌ NEVER
-const payload = jwt.verify(token, process.env.JWT_SECRET!);      // no alg
-const payload = jwt.verify(token, publicKey, {});                  // empty options
-const payload = jwt.verify(token, publicKey, { algorithms: ['RS256'] }); // missing iss/aud
-
-✅ ALWAYS
-const payload = jwt.verify(token, publicKey, {
-  algorithms: ['RS256'],                           // explicit — prevents alg:none attacks
-  issuer: process.env['ENTRA_ISSUER']!,           // must match Entra token endpoint
-  audience: process.env['ENTRA_AUDIENCE']!,       // must match this app's client ID
-});
-// Also validate: exp, nbf, required scopes
+✅ ALWAYS — read APIM-forwarded identity headers
+const userId    = req.headers['x-user-id'];
+const userEmail = req.headers['x-user-email'];
+const userRoles = req.headers['x-user-roles'];
 ```
-
-Validate ALL of: `iss`, `aud`, `exp`, `nbf`, required scopes, cryptographic signature with explicit algorithm.
 
 ### S12 — No Stack Traces in API Responses
 
@@ -326,23 +315,6 @@ app.setErrorHandler((err, req, reply) => {
     requestId: req.id,
     timestamp: new Date().toISOString(),
   });
-});
-```
-
-### S15 — No Wildcard CORS
-
-**NEVER** allow all origins in production:
-
-```typescript
-❌ NEVER
-app.register(cors, { origin: '*' });
-framework.enableCORS({ origins: ['*'] });
-
-✅ ALWAYS
-const ALLOWED_ORIGINS = process.env['CORS_ORIGINS']!.split(',');
-app.register(cors, {
-  origin: ALLOWED_ORIGINS,
-  credentials: true,
 });
 ```
 
@@ -813,38 +785,52 @@ const router = createBrowserRouter([
 
 ### Backend (API)
 
-Validate JWT Bearer tokens on every protected route. Required validations:
+Authentication is handled at the **Azure API Management (APIM) layer** before requests reach the API. APIM forwards verified identity as trusted headers.
+
+Auth middleware reads identity from APIM-forwarded headers only:
 
 ```typescript
 // auth.middleware.ts
-import jwt from 'jsonwebtoken';
-import { createRemoteJWKSet, jwtVerify } from 'jose';
+export async function authMiddleware(req: FastifyRequest, reply: FastifyReply) {
+  const userId    = req.headers['x-user-id'];
+  const userEmail = req.headers['x-user-email'];
+  const userRoles = req.headers['x-user-roles'];
 
-async function authenticate(req, reply) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return reply.status(401).send({ error: 'UNAUTHORIZED', message: 'Missing token' });
+  if (!userId || !userEmail) {
+    // Missing headers means the request bypassed APIM — reject it
+    return reply.status(401).send({
+      error: 'UNAUTHORIZED',
+      message: 'Missing identity headers',
+      timestamp: new Date().toISOString(),
+      requestId: req.id,
+    });
   }
 
-  const token = authHeader.slice(7);
-  const JWKS = createRemoteJWKSet(new URL(`${process.env['ENTRA_ISSUER']}/discovery/v2.0/keys`));
+  req.user = {
+    id: String(userId),
+    email: String(userEmail),
+    roles: userRoles ? String(userRoles).split(',') : [],
+  };
+}
 
-  const { payload } = await jwtVerify(token, JWKS, {
-    algorithms: ['RS256'],           // ✅ explicit algorithm
-    issuer: process.env['ENTRA_ISSUER']!,     // ✅ validate issuer
-    audience: process.env['ENTRA_AUDIENCE']!, // ✅ validate audience
-  });
-
-  // Also check: exp (done by jose), required scopes
-  req.user = payload;
+// requireScope — reads roles from APIM-forwarded header
+export function requireScope(...roles: string[]) {
+  return async (req: FastifyRequest, reply: FastifyReply) => {
+    await authMiddleware(req, reply);
+    const hasRole = roles.some(r => req.user.roles.includes(r));
+    if (!hasRole) {
+      return reply.status(403).send({
+        error: 'FORBIDDEN',
+        message: `Required role: ${roles.join(' or ')}`,
+        timestamp: new Date().toISOString(),
+        requestId: req.id,
+      });
+    }
+  };
 }
 ```
 
-Required environment variables:
-```
-ENTRA_ISSUER=https://login.microsoftonline.com/<tenant-id>/v2.0
-ENTRA_AUDIENCE=<client-id>
-```
+**Never** import any auth token library in API source files — authentication is handled entirely at the APIM layer.
 
 ---
 
@@ -986,7 +972,6 @@ Secrets are **never** in Helm values files — they are injected at deploy time 
 # ✅ values-dev.yaml
 env:
   ENTRA_CLIENT_ID: ""         # injected at deploy time
-  ENTRA_AUDIENCE: ""          # injected at deploy time
   DB_PASSWORD: ""             # injected at deploy time
 ```
 
@@ -1001,14 +986,11 @@ env:
 | `DB_USER` | DB username | `sa` |
 | `DB_PASSWORD` | DB password | — |
 | `DB_PORT` | DB port | `1433` |
-| `ENTRA_ISSUER` | JWT issuer | `https://login.microsoftonline.com/<tenant>/v2.0` |
-| `ENTRA_AUDIENCE` | JWT audience | `<client-id>` |
-| `CORS_ORIGINS` | Comma-separated allowed origins | `http://localhost:3000` |
-
+| `APIM_GATEWAY_URL` | Internal APIM gateway base URL (for service-to-service calls) | `https://apim-cla.azure-api.net` |
 Always validate required env vars at startup:
 
 ```typescript
-const required = ['DB_SERVER', 'DB_DATABASE', 'DB_USER', 'DB_PASSWORD', 'DB_PORT', 'ENTRA_ISSUER', 'ENTRA_AUDIENCE', 'CORS_ORIGINS'];
+const required = ['DB_SERVER', 'DB_DATABASE', 'DB_USER', 'DB_PASSWORD', 'DB_PORT'];
 for (const key of required) {
   if (!process.env[key]) throw new Error(`Missing required environment variable: ${key}`);
 }
@@ -1038,7 +1020,6 @@ const app = framework.app;
 
 await app.register(helmet, { ... });
 await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
-await app.register(cors, { origin: corsOrigins, credentials: true });
 await app.register(myFeatureRoutes, { prefix: '/api/v1', db });     // W04
 
 await framework.start();                                             // W06 — always last
@@ -1174,8 +1155,8 @@ Before considering any feature complete, verify:
 **Security**
 - [ ] No hardcoded secrets anywhere (source, Helm values, CI files)
 - [ ] All SQL uses parameterized queries — zero string interpolation
-- [ ] JWT validation has explicit `algorithms: ['RS256']`, `issuer`, `audience`
-- [ ] CORS uses explicit origin list from env — no `*`
+- [ ] Auth middleware reads `x-user-id` / `x-user-email` / `x-user-roles` headers from APIM
+- [ ] No `req.headers.authorization` reads in routes or middleware
 - [ ] `@fastify/rate-limit` registered
 - [ ] `@fastify/helmet` registered
 - [ ] No sensitive data in logs

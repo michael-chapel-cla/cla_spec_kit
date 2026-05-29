@@ -34,4 +34,4 @@ templates/       ← Starter templates — read-only
 
 ## Fixed stack
 
-All generated apps use: Node.js 20 + Fastify (API), React 18 + MUI v6 (SPA), MSSQL + Flyway (DB), Azure Entra (auth), AKS + Helm (infra). There is no stack configuration — the templates and specs are built for this stack only.
+All generated apps use: Node.js 20 + Fastify (API), React 18 + MUI v6 (SPA), MSSQL + Flyway (DB), Azure Entra via APIM (auth handled at gateway; API reads forwarded identity headers), AKS + Helm (infra). There is no stack configuration — the templates and specs are built for this stack only.

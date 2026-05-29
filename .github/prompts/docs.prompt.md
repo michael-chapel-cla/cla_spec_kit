@@ -39,7 +39,7 @@ One paragraph: what this repo does, what it is part of (three-repo model), and l
 
 #### Architecture at a glance
 - Runtime: Node.js 20 + Fastify + TypeScript
-- Auth: Azure Entra JWT Bearer — `iss`, `aud`, `alg: RS256` validated on every protected route
+- Auth: Azure Entra via APIM; identity forwarded to the API as trusted headers
 - DB: MSSQL via `DbClient` singleton (connection pooled); all queries parameterised
 - Feature structure: `src/features/<feature>/v1/` — types, schema, service, routes
 
@@ -91,7 +91,7 @@ Explain specifically for ${input:appName}:
 - The Entra app registration name/purpose
 - Which routes are public vs. protected
 - How `requireScope()` is used and which scopes exist in this app
-- Where JWT claims are accessed in route handlers (`request.user`)
+- How APIM-forwarded identity headers are accessed in route handlers (`request.user`)
 
 #### Adding a new feature
 

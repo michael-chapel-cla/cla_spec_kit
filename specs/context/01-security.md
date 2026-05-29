@@ -14,15 +14,12 @@
 | S04 | SQL injection via string concatenation                  | CRITICAL | CWE-89   | DB           |
 | S05 | NoSQL injection via unvalidated object                  | CRITICAL | CWE-943  | DB           |
 | S06 | Command injection via `exec()` string                   | CRITICAL | CWE-78   | Shell        |
-| S07 | JWT verify without explicit algorithm                   | CRITICAL | CWE-327  | Auth         |
 | S08 | `Math.random()` for security values                     | HIGH     | CWE-330  | Crypto       |
 | S09 | Hardcoded OAuth client secret                           | CRITICAL | CWE-798  | Auth         |
 | S10 | XSS via `innerHTML` / `dangerouslySetInnerHTML`         | HIGH     | CWE-79   | Output       |
 | S11 | Path traversal — user input in file path                | HIGH     | CWE-22   | FS           |
 | S12 | Stack trace / internal error in API response            | HIGH     | CWE-209  | Error        |
-| S13 | Missing JWT audience or issuer validation               | HIGH     | CWE-287  | Auth         |
 | S14 | Hallucinated / unverified npm package                   | HIGH     | CWE-1357 | Supply Chain |
-| S15 | Wildcard CORS `origin: '*'` in production               | HIGH     | CWE-942  | CORS         |
 | S16 | Missing rate limiting on API server                     | MEDIUM   | CWE-770  | Auth         |
 | S17 | Missing CSRF protection on state-changing routes        | MEDIUM   | CWE-352  | Auth         |
 | S18 | Missing security headers (helmet/CSP/HSTS)              | MEDIUM   | CWE-693  | Headers      |
@@ -168,7 +165,6 @@ const validated = AiResponseSchema.parse(JSON.parse(raw)); // ✅ Zod parse
 /apiKey\s*[:=]\s*['"][^'"]{10,}['"]/ — generic API key
 /password\s*[:=]\s*['"][^'"]{4,}['"]/ — hardcoded password
 /secret\s*[:=]\s*['"][^'"]{8,}['"]/ — hardcoded secret
-/Bearer\s+[A-Za-z0-9._-]{20,}/ — hardcoded token in header
 ```
 
 #### Azure OpenAI — additional patterns (this repo uses these env vars)
@@ -319,41 +315,6 @@ execFile("npm", ["install", packageName]); // ✅
 ```
 
 **Note**: `execFile()` with an argument array never spawns a shell. `exec()` always does.
-
----
-
-## S07 — JWT Verify Without Explicit Algorithm
-
-**Severity**: CRITICAL | **CWE**: CWE-327
-
-Without `algorithms`, an attacker can submit a JWT with `alg: "none"` or switch to a symmetric algorithm using the public key as the secret.
-
-### Detect
-
-```
-Pattern: jwt.verify(token, secret)         — missing third argument
-Pattern: jwt.verify(token, secret, {})     — empty options
-Pattern: jwt.verify(token, publicKey)      — no algorithm specified
-```
-
-### ❌ NEVER
-
-```typescript
-const payload = jwt.verify(token, process.env.JWT_SECRET!); // ❌ — no alg
-const payload = jwt.verify(token, publicKey, {}); // ❌ — empty options
-```
-
-### ✅ ALWAYS
-
-```typescript
-const payload = jwt.verify(token, publicKey, {
-  algorithms: ["RS256"], // ✅ explicit algorithm
-  issuer: "https://auth.example.com",
-  audience: "https://api.example.com",
-});
-```
-
-Also validate: `exp` (expiration), `nbf` (not before), `iss` (issuer), `aud` (audience), `scope`.
 
 ---
 
@@ -529,38 +490,6 @@ app.setErrorHandler((err, req, reply) => {
 
 ---
 
-## S13 — Missing JWT Audience or Issuer Validation
-
-**Severity**: HIGH | **CWE**: CWE-287
-
-Without `iss` and `aud` validation, a JWT from any service signed with the same algorithm is accepted.
-
-### Detect
-
-```
-Pattern: jwt.verify(token, key, { algorithms: [...] })  — no issuer or audience
-Pattern: decoded = jwt.decode(token)  — decode without verify
-```
-
-### ❌ NEVER
-
-```typescript
-jwt.verify(token, publicKey, { algorithms: ["RS256"] }); // ❌ missing iss/aud
-const claims = jwt.decode(token); // ❌ no verification at all
-```
-
-### ✅ ALWAYS
-
-```typescript
-jwt.verify(token, publicKey, {
-  algorithms: ["RS256"],
-  issuer: process.env["JWT_ISSUER"]!, // ✅
-  audience: process.env["JWT_AUDIENCE"]!, // ✅
-});
-```
-
----
-
 ## S14 — Hallucinated / Unverified npm Package
 
 **Severity**: HIGH | **CWE**: CWE-1357
@@ -594,36 +523,6 @@ curl -s "https://api.npmjs.org/downloads/point/last-week/{package}" | python3 -c
 cat node_modules/{package}/package.json | python3 -c "
 import sys,json; p=json.load(sys.stdin); s=p.get('scripts',{})
 print(s.get('preinstall',''), s.get('postinstall',''), s.get('install',''))"
-```
-
----
-
-## S15 — Wildcard CORS `origin: '*'`
-
-**Severity**: HIGH | **CWE**: CWE-942
-
-### Detect
-
-```
-Pattern: origin: '*'
-Pattern: "Access-Control-Allow-Origin": "*"
-Pattern: cors({ origin: true })  — reflects any origin
-```
-
-### ❌ NEVER (in production)
-
-```typescript
-app.register(cors, { origin: "*" }); // ❌ — allows any site to make credentialed requests
-```
-
-### ✅ ALWAYS
-
-```typescript
-const ALLOWED_ORIGINS = process.env["CORS_ORIGINS"]!.split(",");
-app.register(cors, {
-  origin: ALLOWED_ORIGINS, // ✅ explicit list
-  credentials: true,
-});
 ```
 
 ---
@@ -933,7 +832,7 @@ If the system prompt contains confidential logic, internal URLs, credentials, or
 ```bash
 # Flag system prompts that contain anything resembling a secret or internal detail
 grep -rn 'role.*system' "$WORKSPACE" --include='*.ts' --include='*.js' | \
-  grep -E 'apiKey|password|secret|token|Bearer|internal\.|\.internal|192\.168\.'
+  grep -E 'apiKey|password|secret|token|internal\.|\.internal|192\.168\.'
 ```
 
 Look in source for system prompt strings (usually static constants) containing:
@@ -2342,7 +2241,7 @@ const schema = {
 
 **Severity:** HIGH | **CWE:** CWE-285
 
-Every protected route must check not just that the user is authenticated (valid JWT) but that they are **authorized** for the specific action (correct scope/role). Missing scope checks allow any authenticated user to access any endpoint.
+Every protected route must check not just that the user is authenticated (identity headers present) but that they are **authorized** for the specific action (correct scope/role). Missing scope checks allow any authenticated user to access any endpoint.
 
 ### Detect
 ```bash

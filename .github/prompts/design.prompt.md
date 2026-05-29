@@ -18,7 +18,7 @@ All apps built with this spec-kit use a fixed stack. Write all technical section
 **Backend**: Node.js 20 + Fastify + TypeScript
 **Frontend**: React 18 + Vite + TypeScript + MUI (Material UI) v6
 **Database**: MSSQL (SQL Server) + Flyway versioned migrations
-**Auth**: Azure Entra (OIDC for the SPA via `framework-react-core`, JWT Bearer for the API)
+**Auth**: Azure Entra — OIDC for the SPA via `framework-react-core`; authentication handled at APIM; API reads forwarded identity headers `x-user-id`, `x-user-email`, `x-user-roles`
 **Infra**: Docker + Docker Compose (local dev) → AKS + Helm (production)
 **CI/CD**: GitHub Actions
 
@@ -26,7 +26,7 @@ All apps built with this spec-kit use a fixed stack. Write all technical section
 - URI versioning: all routes at `/api/v1/ResourceName`
 - PascalCase plural resource names
 - OpenAPI 3.0.3 spec at `docs/openapi.yaml`
-- JWT validation: `iss`, `aud`, `exp`, `alg` (RS256) — no exceptions
+- Authentication handled at APIM; API auth middleware reads `x-user-id` / `x-user-email` / `x-user-roles` forwarded headers
 - Feature-based code organization: `src/features/<feature>/v1/`
 - DB migrations: `V{major}.{minor}.{patch}__{description}.sql` in `db/migrations/`
 - Stored procedures/views: `R__{name}.sql` repeatable migrations
@@ -119,7 +119,7 @@ Write each of the following files to `/requirements/${input:appName}/`. Every do
 
 ### HLD.md (High Level Design)
 - Product stance (standalone SaaS, internal tool, platform feature, etc.)
-- Identity model: Azure Entra app registration, OIDC for the React SPA, JWT bearer for the API
+- Identity model: Azure Entra app registration, OIDC for the React SPA; API reads APIM-forwarded identity headers
 - Overview paragraph
 - Primary users
 - Core capabilities
@@ -139,7 +139,7 @@ Write each of the following files to `/requirements/${input:appName}/`. Every do
 - Devcontainer services: MSSQL, db-init script, Flyway, backend, frontend
 - Identity design:
   - SPA: Entra OIDC via `framework-react-core` (MSAL)
-  - API: JWT Bearer validation (`iss`, `aud`, `exp`, `alg: RS256`)
+  - API: reads APIM-forwarded identity headers (`x-user-id`, `x-user-email`, `x-user-roles`)
   - Suggest RBAC table design if role-based access is needed
 - Domain entities (the core data objects — will become DB tables)
 - API route suggestions (list `METHOD /api/v1/ResourceName` for each CRUD operation)

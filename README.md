@@ -174,7 +174,7 @@ Each repo has its own `helm/`, `docker-compose.yml`, `.devcontainer/`, and `.git
 
 The scaffold includes:
 - Feature-organized routes, services, schemas, and types for every endpoint in the plan
-- Auth middleware with full JWT validation (RS256, issuer, audience)
+- Auth middleware reading APIM-forwarded identity headers
 - DB client with connection pooling and parameterized query helpers
 - `docs/openapi.yaml` for all endpoints (written before route code — contract-first)
 - `docs/spec/` in every repo — full requirements and plan copied in for developer context
@@ -195,7 +195,7 @@ The scaffold includes:
 
 Run `/validate my-new-app` (Copilot) or `/validate my-new-app` (Claude Code) to audit the generated scaffold against all coding standards. It produces a scored report (0–100) with findings grouped by category:
 
-- **Security** — hardcoded secrets, SQL injection, JWT validation, CORS, rate limiting, OWASP patterns
+- **Security** — hardcoded secrets, SQL injection, rate limiting, OWASP patterns
 - **Code Quality** — TypeScript `any`, `console.log`, async patterns, direct API calls in components
 - **API Standards** — URI versioning, HTTP status codes, OpenAPI spec, Postman collection
 - **DB Migrations** — naming convention, `SELECT *`, transaction patterns, `flyway.conf` not committed
@@ -230,7 +230,7 @@ The three repos must be cloned as siblings — the API docker-compose mounts `..
 # 1. Configure the API
 cp repos/web-api-my-new-app/.env.example repos/web-api-my-new-app/.env
 # Edit .env — fill in: DATABASE_SERVER, DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD,
-#                       ENTRA_ISSUER, ENTRA_AUDIENCE, BLOB_ACCOUNT_NAME, BLOB_ACCOUNT_KEY
+#                       BLOB_ACCOUNT_NAME, BLOB_ACCOUNT_KEY
 
 # 2. Configure frontend auth
 # Edit repos/web-my-new-app/public/static-config.json — fill in clientId and authority
@@ -259,10 +259,10 @@ The instructions file gives Copilot full context on every standard, with ❌/✅
 | Area | What's covered |
 |---|---|
 | **API standards** | URI versioning, PascalCase plural resources, HTTP method contracts, all status codes, standard error format, OpenAPI contract-first, Postman requirements |
-| **Security** | No hardcoded secrets, parameterized SQL only, full JWT validation (RS256 + issuer + audience), no wildcard CORS, rate limiting, security headers, no sensitive data in logs |
+| **Security** | No hardcoded secrets, parameterized SQL only, rate limiting, security headers, no sensitive data in logs |
 | **Code quality** | No TypeScript `any`, no `console.log`, async/await only, service layer required, 85% test coverage, React hook rules |
 | **Database** | Flyway migration naming, table schema standards, no `SELECT *`, transaction patterns, repeatable migrations for stored procedures |
-| **Authentication** | `framework-react-core` handles SPA auth (never reimplement), JWT bearer for API, Entra config from `static-config.json` |
+| **Authentication** | `framework-react-core` handles SPA auth (never reimplement); auth handled at APIM; API reads APIM-forwarded identity headers (`x-user-id`, `x-user-email`, `x-user-roles`) |
 | **Frontend rules** | Service layer required (no API calls in components), `requireAuth()` on all protected routes, `static-config.json` required fields, explicit return types, default exports on pages only |
 | **Framework compliance** | `FrameworkFastify.create()` startup sequence, route plugin signature with `{ db }`, `requireScope` for role-gated routes, `claTheme` via `lib-seamlesscomponents-react`, `framework-eslint-config` in all repos |
 | **Testing** | Vitest + RTL required, every service and route has a test file, no `.only` in committed tests, no mssql mocking in integration tests, coverage thresholds ≥ 85% enforced in `vitest.config.ts` |
@@ -319,7 +319,7 @@ All generated applications use this stack. There is no configuration — the tem
 | Backend | Node.js 20 + Fastify + TypeScript |
 | Frontend | React 18 + Vite + TypeScript + MUI v6 |
 | Database | MSSQL (SQL Server) + Flyway migrations |
-| Auth | Azure Entra — OIDC for SPA, JWT bearer for API |
+| Auth | Azure Entra via APIM — OIDC for SPA via `framework-react-core`; API reads APIM-forwarded identity headers |
 | Local dev | Docker + Docker Compose |
 | Deployment | AKS + Helm |
 | CI/CD | GitHub Actions |

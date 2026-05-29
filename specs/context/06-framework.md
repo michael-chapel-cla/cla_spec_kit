@@ -46,7 +46,6 @@ const app = framework.app;
 // Register security plugins first
 await app.register(helmet, { ... });
 await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
-await app.register(cors, { origin: corsOrigins, credentials: true });
 
 // Register feature route plugins
 await app.register(myFeatureRoutes, { prefix: '/api/v1', db });

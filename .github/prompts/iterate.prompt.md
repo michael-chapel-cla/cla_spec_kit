@@ -114,7 +114,6 @@ Add all new endpoints to `repos/web-api-${input:appName}/docs/openapi.yaml`.
 
 For each endpoint include:
 - `summary` and `description`
-- `security` (bearerAuth)
 - All parameters with types and constraints
 - Request body schema (if applicable)
 - All expected response status codes with schemas

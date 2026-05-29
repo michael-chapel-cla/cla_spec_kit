@@ -136,21 +136,35 @@ GET /health/ready  → Kubernetes readiness probe
 
 ---
 
-### JWT / AUTH
+### AUTH — APIM-Forwarded Identity Headers
 
-**JWT validation — ALL claims required:**
+Authentication is handled by Azure API Management before requests reach the API. APIM forwards verified identity as trusted headers. The API reads these headers only — it never performs token validation.
+
 ```typescript
-jwt.verify(token, publicKey, {
-  algorithms: ['RS256'],                          // NEVER omit
-  issuer: process.env['ENTRA_ISSUER']!,
-  audience: process.env['ENTRA_AUDIENCE']!,
-});
+// ✅ auth.middleware.ts — read APIM-forwarded headers only
+export async function authMiddleware(req: FastifyRequest, reply: FastifyReply) {
+  const userId    = req.headers['x-user-id'];
+  const userEmail = req.headers['x-user-email'];
+  const userRoles = req.headers['x-user-roles'];
+
+  if (!userId || !userEmail) {
+    return reply.status(401).send({
+      error: 'UNAUTHORIZED',
+      message: 'Missing identity headers',
+      timestamp: new Date().toISOString(),
+      requestId: req.id,
+    });
+  }
+
+  req.user = {
+    id: String(userId),
+    email: String(userEmail),
+    roles: userRoles ? String(userRoles).split(',') : [],
+  };
+}
 ```
 
-❌ `jwt.verify(token, secret)` — no algorithm, no issuer, no audience
-❌ `jwt.decode(token)` — decode without verification
-
-Apply to all routes except `/health` and `/health/ready`.
+Apply `authMiddleware` to all routes except `GET /health` and `GET /health/ready`.
 
 ---
 
@@ -161,7 +175,7 @@ Apply to all routes except `/health` and `/health/ready`.
 ❌ const apiKey = 'sk_live_abc123';
 ✅ const apiKey = process.env['API_KEY']!;
 ```
-Covers: API keys, DB passwords, JWT secrets, Entra clientId/secret, connection strings.
+Covers: API keys, DB passwords, Entra clientId/secret, connection strings.
 Helm values: leave all secret values as `""` with a comment — never a literal value.
 
 **S04 — Parameterized queries only:**
@@ -171,13 +185,6 @@ Helm values: leave all secret values as `""` with a comment — never a literal 
 ```
 
 **S12 — No stack traces in API responses.**
-
-**S15 — No wildcard CORS:**
-```typescript
-❌ app.register(cors, { origin: '*' });
-✅ const origins = process.env['CORS_ORIGINS']!.split(',');
-   app.register(cors, { origin: origins, credentials: true });
-```
 
 **S16 — Rate limiting required:**
 ```typescript
@@ -294,12 +301,6 @@ DB_USER=sa
 DB_PASSWORD=Change_Me_123!
 DB_PORT=1433
 
-# Azure Entra — JWT validation
-ENTRA_ISSUER=https://login.microsoftonline.com/<tenant-id>/v2.0
-ENTRA_AUDIENCE=<client-id>
-
-# CORS — comma-separated allowed origins
-CORS_ORIGINS=http://localhost:3000
 # (add any app-specific variables from the plan below this line)
 ```
 
@@ -315,11 +316,6 @@ servers:
   - url: http://localhost:8080
     description: Local development
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
   schemas:
     Error:
       type: object
@@ -349,15 +345,15 @@ paths:
   # One path block per endpoint from the plan
 ```
 
-Every non-health path: `operationId`, `tags`, `security: [{ bearerAuth: [] }]`, full `parameters`, `requestBody` (POST/PUT/PATCH), and responses for ALL expected status codes. 201 responses include a `Location` header. All error responses use `$ref: '#/components/schemas/Error'`.
+Every non-health path: `operationId`, `tags`, full `parameters`, `requestBody` (POST/PUT/PATCH), and responses for ALL expected status codes. 201 responses include a `Location` header. All error responses use `$ref: '#/components/schemas/Error'`.
 
-**3d.** Create `src/shared/auth/auth.middleware.ts` — validates Bearer JWT with RS256, issuer, audience all from env.
+**3d.** Create `src/shared/auth/auth.middleware.ts` — reads APIM-forwarded identity headers (`x-user-id`, `x-user-email`, `x-user-roles`). Returns 401 if required headers are absent. Also export `requireScope(...roles)` which calls `authMiddleware` then checks `req.user.roles` against the required roles, returning 403 if unmet.
 
 **3e.** Create `src/shared/db/db.client.ts` — mssql ConnectionPool created once at startup; typed `executeQuery(sql, params)` helper; parameterized queries only; config from env.
 
 **3f.** Create `src/shared/errors/error.handler.ts` — centralized Fastify error handler.
 
-**3g.** Register on app startup: `@fastify/helmet`, `@fastify/rate-limit` (100/min), `@fastify/cors` (env origins only).
+**3g.** Register on app startup: `@fastify/helmet`, `@fastify/rate-limit` (100/min).
 
 **3h.** Write backend test files FIRST. Before creating any feature source files, write the test files for every feature using the cases from `TDD.md`. Each test file must contain the named `it()` blocks from the contract — not empty stubs:
 
@@ -428,15 +424,14 @@ docker compose run --rm flyway validate
 ```
 
 **3j.** Create Postman artifacts:
-- `postman/collections/${input:appName}.json` — Postman collection v2.1; one request per endpoint; `pm.test(...)` scripts verifying status code and response shape; all requests use `{{baseUrl}}` and `Authorization: Bearer {{bearerToken}}`
+- `postman/collections/${input:appName}.json` — Postman collection v2.1; one request per endpoint; `pm.test(...)` scripts verifying status code and response shape; all requests use `{{baseUrl}}`
 - `postman/environments/${input:appName}-local.postman_environment.json`:
 
 ```json
 {
   "name": "${input:appName} — Local",
   "values": [
-    { "key": "baseUrl",     "value": "http://localhost:8080", "type": "default", "enabled": true },
-    { "key": "bearerToken", "value": "",                      "type": "secret",  "enabled": true }
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "default", "enabled": true }
   ],
   "_postman_variable_scope": "environment"
 }
@@ -784,7 +779,7 @@ Part 1 — App-specific header:
 |---|---|
 | Runtime | Node.js 20 + Fastify + TypeScript |
 | Database | MSSQL (SQL Server) + Flyway migrations |
-| Auth | Azure Entra — RS256 JWT bearer |
+| Auth | Azure Entra via APIM; API reads APIM-forwarded identity headers |
 | Local dev | Docker Compose |
 | Deployment | AKS + Helm |
 
@@ -953,7 +948,7 @@ Copy the spec context into all three repos so developers have full background wi
 
 Verify before reporting complete:
 
-1. No hardcoded secrets in any repo (Entra clientId/secret, DB passwords, JWT secrets as literal values)
+1. No hardcoded secrets in any repo (Entra clientId/secret, DB passwords as literal values)
 2. Every API endpoint in the plan has a route file, service stub, and `docs/openapi.yaml` entry — with all required status codes, parameter schemas, and request body schemas
 3. Every DB table in the plan has a Flyway migration in `db-${input:appName}/migrations/`
 4. Every frontend page in the plan has a `.tsx` file
@@ -961,8 +956,7 @@ Verify before reporting complete:
 6. No `console.log` in any production code file
 7. All SQL uses parameterized queries — no string concatenation
 8. `@fastify/helmet` and `@fastify/rate-limit` registered in `app.ts`
-9. JWT middleware validates `algorithms`, `issuer`, `audience`
-10. CORS configured with env var origins (no wildcards)
+9. Auth middleware reads `x-user-id` / `x-user-email` / `x-user-roles` headers — no token library imports, no token validation in source files
 11. Helm values have no leftover placeholder strings except those marked "set at deploy time" — applies to BOTH `web-api-${input:appName}/helm/` and `web-${input:appName}/helm/`
 12. `flyway.conf` is NOT present in `db-${input:appName}/` — only `flyway.conf.example`
 13. `web-api-${input:appName}/docker-compose.yml` mounts `../db-${input:appName}/migrations` for Flyway

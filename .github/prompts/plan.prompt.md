@@ -56,10 +56,9 @@ These repos are designed to be cloned as siblings in the same parent directory. 
 - Own `docker-compose.yml` (frontend only — backend runs separately)
 
 **Security requirements for every API:**
-- JWT validation: `algorithms: ['RS256']`, `issuer` from env, `audience` from env
+- Auth: handled at APIM; API reads identity from APIM-forwarded headers `x-user-id`, `x-user-email`, `x-user-roles`
 - Rate limiting: `@fastify/rate-limit` (100 req/min)
 - Security headers: `@fastify/helmet`
-- CORS: explicit origins from env (no `*`)
 - No sensitive data in logs
 - All DB calls: parameterized queries only
 
@@ -129,7 +128,7 @@ Create `/plans/${input:appName}/PLAN.md` with ALL of the following sections:
 
 #### Architecture Decisions
 Document key technical choices:
-- Auth strategy: Entra tenant/app registration approach, JWT validation library, how RBAC is implemented
+- Auth strategy: Entra app registration for APIM; how APIM-forwarded identity headers (`x-user-id`, `x-user-email`, `x-user-roles`) are used for RBAC in `requireScope`
 - Database: schema name, multi-tenancy strategy if applicable, index strategy
 - API structure: feature groupings, which endpoints share auth scopes, versioning approach
 - State management / caching (Redis usage if any)
@@ -284,10 +283,9 @@ Two Helm charts — one per non-DB repo. For each:
 #### Azure Entra Configuration
 
 - App registration name suggestion
-- Required API scopes (used in `FRAMEWORK_UI_AUTH_SCOPES` and JWT validation)
+- Required API scopes (used in `FRAMEWORK_UI_AUTH_SCOPES` in the SPA and in the APIM auth policy)
 - Frontend redirect URI: `http://localhost:3000/auth/callback` (dev)
-- Backend: `ENTRA_AUDIENCE` value
-- Backend: `ENTRA_ISSUER` value
+- Note: Auth validation is configured in APIM — not in API code. The API receives verified identity as `x-user-id`, `x-user-email`, and `x-user-roles` headers.
 
 ---
 
@@ -301,9 +299,6 @@ List ALL environment variables required by the API backend:
 | `DB_USER` | DB username | `sa` | yes |
 | `DB_PASSWORD` | DB password | — | yes |
 | `DB_PORT` | DB port | `1433` | yes |
-| `ENTRA_ISSUER` | JWT issuer | `https://login.microsoftonline.com/<tenant>/v2.0` | yes |
-| `ENTRA_AUDIENCE` | JWT audience | `<client-id>` | yes |
-| `CORS_ORIGINS` | Comma-separated allowed origins | `http://localhost:3000` | yes |
 | (add app-specific vars from the requirements) | | | |
 
 ---
@@ -363,7 +358,7 @@ cd ../web-${input:appName} && npm install
 # 4. Create the API env file
 cd ../web-api-${input:appName}
 cp .env.example .env
-# Edit .env — fill in DB_*, ENTRA_*, CORS_ORIGINS
+# Edit .env — fill in DB_* and any app-specific vars
 
 # 5. Start SQL Server, create the database, and run migrations
 #    (docker-compose in web-api reads ../db-${input:appName}/migrations)

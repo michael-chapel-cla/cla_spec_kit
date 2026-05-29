@@ -59,8 +59,6 @@ Run audits in this order, checking the relevant files for every rule in the load
 **Security audit** (01-security.md) — scan `web-api-${input:appName}/src/`, `db-${input:appName}/migrations/`, and `web-api-${input:appName}/.env.example`:
 - Hardcoded secrets (S03, S09)
 - SQL string concatenation (S04)
-- JWT verification missing algorithm, issuer, or audience (S07, S13)
-- Wildcard CORS (S15)
 - Missing rate limiting (S16)
 - Missing security headers (S18)
 - Sensitive data in logs (S19)

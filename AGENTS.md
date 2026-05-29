@@ -53,7 +53,7 @@ cla_spec_kit/
 - **Backend**: Node.js + Fastify + TypeScript (from `templates/framework-nodejs-starter-kit/`)
 - **Frontend**: React + Vite + TypeScript + MUI (from `templates/framework-react-starter-kit/`)
 - **Database**: MSSQL + Flyway migrations (DB lives in `repos/db-<app-name>/`, cloned as a sibling to the API and frontend repos)
-- **Auth**: Azure Entra (OIDC for SPA, JWT bearer for API)
+- **Auth**: Azure Entra via APIM (OIDC for SPA; API reads APIM-forwarded identity headers)
 - **Infra**: AKS + Helm (from `templates/helm/`)
 - **Standards**: See `/specs/` — always apply during `/create`
 

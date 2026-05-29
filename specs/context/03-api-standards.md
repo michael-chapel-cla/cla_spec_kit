@@ -21,9 +21,7 @@ Load this file for `/api-audit`. Starting score: **100**. Apply penalties per fi
 | A09 | Generic 400/500 instead of specific status code                            | MEDIUM   | -7      |
 | A10 | Error response missing required fields                                     | MEDIUM   | -7      |
 | A11 | Stack trace in error response                                              | HIGH     | -15     |
-| A12 | No JWT iss/aud/exp/scope validation                                        | CRITICAL | -25     |
 | A13 | Unprotected route (no auth middleware)                                     | HIGH     | -15     |
-| A14 | Wildcard CORS (`origins: ['*']`) in production                             | HIGH     | -15     |
 | A15 | No CSRF protection on state-changing endpoints                             | MEDIUM   | -7      |
 | A16 | No rate limiting on public endpoints                                       | MEDIUM   | -7      |
 | A17 | Missing security headers (helmet/CSP/HSTS)                                 | MEDIUM   | -7      |
@@ -366,48 +364,6 @@ res
 
 ---
 
-## A12 — JWT Validation Incomplete
-
-**Severity:** CRITICAL | **Penalty:** -25
-
-Every token validation MUST check ALL of: `iss`, `aud`, `exp`, `nbf`, `scopes`, `roles`, and cryptographic signature with explicit algorithm.
-
-**Detect:**
-
-```bash
-grep -rn 'jwt\.verify\|verifyToken\|validateToken' src/
-# Check each call — must specify algorithms array
-grep -rn 'algorithms.*\[\|algorithm:' src/
-```
-
-**Required validation checklist:**
-
-- [ ] `iss` (issuer) matches expected auth server
-- [ ] `aud` (audience) matches this service
-- [ ] `exp` not expired
-- [ ] `nbf` not before check
-- [ ] Required scopes present
-- [ ] Explicit `algorithms: ['RS256']` or `['ES256']` — never omit
-- [ ] Signature cryptographically verified
-
-❌
-
-```typescript
-jwt.verify(token, secret); // No algorithm, no aud/iss check
-```
-
-✅
-
-```typescript
-jwt.verify(token, publicKey, {
-  algorithms: ["RS256"],
-  issuer: process.env.JWT_ISSUER,
-  audience: process.env.JWT_AUDIENCE,
-});
-```
-
----
-
 ## A13 — Unprotected Route
 
 **Severity:** HIGH | **Penalty:** -15
@@ -437,38 +393,6 @@ server.route({
   url: "/users/:id",
   config: { authRequired: true, allowedRoles: ["admin"] },
   handler: deleteUser,
-});
-```
-
----
-
-## A14 — Wildcard CORS
-
-**Severity:** HIGH | **Penalty:** -15 (also flagged as S15 in security)
-
-Wildcard CORS (`*`) is never acceptable in production. Only in dev/test.
-
-**Detect:**
-
-```bash
-grep -rn "origin.*'\*'\|origin.*\"\*\"\|origins.*\['\*'\]" src/
-grep -rn 'cors.*\*\|CORS.*\*' src/
-```
-
-❌
-
-```typescript
-app.use(cors({ origin: "*" }));
-framework.enableCORS({ origins: ["*"] });
-```
-
-✅
-
-```typescript
-framework.enableCORS({
-  origins: ["https://myapp.com", "https://admin.myapp.com"],
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"],
 });
 ```
 
@@ -912,7 +836,7 @@ expect(response.body.id).toBeDefined();
 import Ajv from 'ajv';
 
 it('GET /api/v1/Users/:id response matches OpenAPI schema', async () => {
-  const response = await request(app).get('/api/v1/Users/1').set('Authorization', `Bearer ${token}`);
+  const response = await request(app).get('/api/v1/Users/1').set('x-user-id', '1').set('x-user-email', 'test@example.com');
   const ajv = new Ajv();
   const validate = ajv.compile(openapiSchema.components.schemas.User);
   expect(validate(response.body)).toBe(true);

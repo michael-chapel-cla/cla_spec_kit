@@ -13,7 +13,7 @@ Read `.github/prompts/create.prompt.md` and execute every step it describes for 
 
 **Format guardrails:**
 - Copy templates first, then customize — never generate files from scratch
-- No hardcoded secrets anywhere (Entra clientId/secret, DB passwords, JWT secrets as literals)
+- No hardcoded secrets anywhere (Entra clientId/secret, DB passwords, API keys as literals)
 - All SQL uses parameterized queries — never string concatenation
 - No `azure-pipelines.yml` — CI/CD uses `.github/workflows/ci.yml`
 - No "For Hermes" or agent-specific meta-instructions in any generated file
