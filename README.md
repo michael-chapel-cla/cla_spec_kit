@@ -297,15 +297,15 @@ cla_spec_kit/
 │   ├── framework-react-starter-kit/
 │   ├── framework-db-starter-kit/  ← Flyway + docker-compose template for db-<app> repos
 │   └── helm/             ← Helm chart template for AKS deployment
-└── .claude/
-    └── commands/         ← Claude Code slash commands
-        ├── design.md     ← /design <app-name>
-        ├── plan.md       ← /plan <app-name>
-        ├── create.md     ← /create <app-name>
-        ├── validate.md   ← /validate <app-name>
-        ├── audit-idea.md ← /audit-idea <app-name>
-        ├── iterate.md    ← /iterate <app-name> <feature-name>
-        └── docs.md       ← /docs <app-name>
+└── .github/
+    └── prompts/          ← GitHub Copilot agent prompts
+        ├── design.prompt.md      ← /design <app-name>
+        ├── plan.prompt.md        ← /plan <app-name>
+        ├── create.prompt.md      ← /create <app-name>
+        ├── validate.prompt.md    ← /validate <app-name>
+        ├── audit-idea.prompt.md  ← /audit-idea <app-name>
+        ├── iterate.prompt.md     ← /iterate <app-name> <feature-name>
+        └── docs.prompt.md        ← /docs <app-name>
 ```
 
 ---
