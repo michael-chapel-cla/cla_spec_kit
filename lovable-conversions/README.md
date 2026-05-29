@@ -28,13 +28,13 @@ That's it. The command runs the full pipeline and produces three repos in `/repo
 
 ## What `/convert` does
 
-The command runs three phases automatically, in sequence. There is no requirements/design phase — you already have a working app, so the agent goes straight from source to plan to scaffold.
+The command runs three phases automatically, in sequence. There is no requirements/design phase — you already have a working app, so the agent goes straight from source to plan to fully implemented application.
 
 ```
-Lovable source  →  Plan                       →  Three scaffolded repos
-/lovable-conversions/<app>     /plans/<app>/PLAN.md          /repos/web-api-<app>/
-                                                 /repos/web-<app>/
-                                                 /repos/db-<app>/
+Lovable source              →  Plan                    →  Three complete repos
+lovable-conversions/<app>      plans/<app>/PLAN.md        repos/web-api-<app>/
+                                                           repos/web-<app>/
+                                                           repos/db-<app>/
 ```
 
 ### Phase 1 — Source analysis
@@ -51,7 +51,7 @@ Nothing is invented. If it is not in the source, it does not go into the plan.
 
 ### Phase 2 — Plan generation
 
-Produces `/plans/<app-name>/PLAN.md` directly from the source analysis — no intermediate requirements documents. The plan contains everything `/create` needs:
+Produces `/plans/<app-name>/PLAN.md` directly from the source analysis — no intermediate requirements documents. The plan contains everything the build phase needs:
 
 | Plan section | Derived from |
 |---|---|
@@ -62,9 +62,9 @@ Produces `/plans/<app-name>/PLAN.md` directly from the source analysis — no in
 | Build phases | Tests before implementation, Lovable MVP as Phase 1 baseline |
 | Deferred features | Supabase Realtime, Storage → Phase 2 |
 
-### Phase 3 — Scaffold
+### Phase 3 — Build
 
-Produces three repos in `/repos/`, the same output as `/create`:
+Produces three fully implemented repos in `/repos/`:
 
 | Repo | Contents |
 |---|---|
@@ -137,11 +137,11 @@ Anything deferred (not dropped) appears in `ROADMAP.md` Phase 2 or 3 with an exp
 
 **Include Supabase migrations if you have them.** `supabase/migrations/*.sql` gives exact column types, indexes, and foreign keys — far more reliable than inferring from TypeScript types alone.
 
-**Name the directory clearly.** The directory name becomes the app name throughout the pipeline: repo names (`web-api-<name>`), plan file, requirements folder, Docker image names, Helm chart names. Use kebab-case.
+**Name the directory clearly.** The directory name becomes the app name throughout the pipeline: repo names (`web-api-<name>`), plan file, Docker image names, Helm chart names. Use kebab-case.
 
-**Check `ROADMAP.md` after conversion.** It lists everything deferred from the Lovable source — half-built pages, TODO comments, placeholder sections — as Phase 2 work. Review it to make sure nothing important was misclassified.
+**Check `ROADMAP.md` after the port.** It lists everything deferred from the Lovable source — half-built pages, TODO comments, placeholder sections — as Phase 2 work. Review it to make sure nothing important was misclassified.
 
-**Run `/validate <app-name>` after `/convert`.** The validate command audits the generated scaffold against coding standards and produces a scored report. Run it to catch any gaps before development starts.
+**Run `/validate <app-name>` after `/convert`.** The validate command audits the output against coding standards and produces a scored report. Run it to catch any gaps before development starts.
 
 ---
 
