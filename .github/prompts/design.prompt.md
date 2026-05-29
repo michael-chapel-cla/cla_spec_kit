@@ -71,7 +71,7 @@ Read all files in `/requirements/example/` to understand the expected format, de
 
 Create the directory `/requirements/${input:appName}/` if it does not exist.
 
-### Step 4 — Generate all 16 requirement documents
+### Step 4 — Generate all 17 requirement documents
 
 Write each of the following files to `/requirements/${input:appName}/`. Every document must be substantive and specific to ${input:appName} — not generic filler. Do not use placeholder text. If a topic is not covered in the idea, make reasonable inferences and note assumptions clearly.
 
@@ -243,6 +243,77 @@ Write each of the following files to `/requirements/${input:appName}/`. Every do
 
 ---
 
+---
+
+### TDD.md (Test-Driven Development Contract)
+
+This document is consumed by `/create` to scaffold test files **before** any business logic is written. It must be specific to ${input:appName} — not generic. Derive every test case from the features, API routes, and frontend pages described in the other requirement documents.
+
+Structure:
+
+```
+# TDD.md — Test Contract for <App Name>
+
+## Overview
+One paragraph: which layers have unit tests vs. integration tests, coverage targets (lines ≥ 85%, branches ≥ 80%, functions ≥ 85%).
+
+## [Feature Name] Feature
+
+### [FeatureName]Service — Unit Tests
+File: `tests/unit/<feature>.service.test.ts`
+
+For each public service method, list named test cases:
+#### `methodName(param1, param2)`
+- returns [expected result] when [happy path condition]
+- returns empty array / null when [not-found condition]
+- throws 404 when [resource does not exist]
+- throws 422 when [validation condition]
+- throws 409 when [conflict condition]
+- propagates DB errors
+
+### [FeatureName] Routes — Integration Tests
+File: `tests/unit/<feature>.routes.test.ts`
+
+For each API endpoint, list named test cases:
+#### `GET /api/v1/Resources`
+- 200 with [response shape] for authenticated user
+- 401 when Authorization header is missing
+- 401 when token is expired or invalid
+- 403 when user lacks [required scope]
+
+#### `POST /api/v1/Resources`
+- 201 with Location header when body is valid
+- 422 when [required field] is missing or invalid
+- 409 when [duplicate / conflict condition]
+- 401 when not authenticated
+
+(repeat for every endpoint from LLD.md)
+
+## [Page Name] Page — Frontend Tests
+File: `test/unit/<PageName>.test.tsx`
+
+### Render
+- displays loading indicator while data is fetching
+- displays [key element] after successful data load
+- displays empty state message when [list is empty]
+- displays error message when fetch fails
+
+### Interactions
+- clicking [action button] [triggers expected outcome]
+- submitting [form] calls [service method] and [expected result]
+- [navigation action] routes to [expected path]
+
+### Accessibility
+- all form fields have associated label elements
+- action buttons have accessible names via aria-label or visible text
+
+(repeat for every page from LLD.md)
+```
+
+Write one test case per line, phrased as an `it()` description. Every feature from `LLD.md` and every page from `LLD.md` must appear here. Do not use placeholder text.
+
+---
+
 ### Step 5 — Confirm completion
 
-After writing all 16 files, output a brief summary listing the files created and any assumptions made where the idea did not provide enough detail.
+After writing all 17 files, output a brief summary listing the files created and any assumptions made where the idea did not provide enough detail.

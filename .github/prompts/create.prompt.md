@@ -256,10 +256,13 @@ Read all eight coding standards files. Every rule in these files is non-negotiab
 - `/specs/context/06-framework.md` — framework usage rules (W01–W12)
 - `/specs/context/07-testing.md` — testing rules (T01–T15)
 - `/specs/context/08-accessibility.md` — accessibility rules (AX01–AX15)
+- `/specs/context/09-tdd.md` — TDD guardrails (TD01–TD08)
 
-### Step 2 — Read the plan
+### Step 2 — Read the plan and TDD contract
 
 Read all files in `/plans/${input:appName}/`. Note every API endpoint, DB table, frontend page, and Helm config change before creating any files.
+
+Also read `/requirements/${input:appName}/TDD.md`. This is the test contract. Every `it()` description listed in that document must appear in the corresponding test file. **Test files must be written before their implementation files in Steps 4 and 6.** This is a hard constraint — if you write `<feature>.service.ts` before `<feature>.service.test.ts`, that is a TDD violation.
 
 ### Step 3 — Create the three output directories
 
@@ -356,7 +359,44 @@ Every non-health path: `operationId`, `tags`, `security: [{ bearerAuth: [] }]`, 
 
 **3g.** Register on app startup: `@fastify/helmet`, `@fastify/rate-limit` (100/min), `@fastify/cors` (env origins only).
 
-**3h.** Create feature-based source structure. Implement the `docs/openapi.yaml` contract exactly. For each feature from the plan:
+**3h.** Write backend test files FIRST. Before creating any feature source files, write the test files for every feature using the cases from `TDD.md`. Each test file must contain the named `it()` blocks from the contract — not empty stubs:
+
+For service tests (`tests/unit/<feature>.service.test.ts`):
+```typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { <Feature>Service } from '../../src/features/<feature>/v1/<feature>.service';
+
+const mockDb = { executeQuery: vi.fn() };
+
+describe('<Feature>Service', () => {
+  let service: <Feature>Service;
+  beforeEach(() => { vi.clearAllMocks(); service = new <Feature>Service(mockDb as any); });
+
+  describe('methodName(param1, param2)', () => {
+    it('[happy path description from TDD.md]', async () => {
+      mockDb.executeQuery.mockResolvedValueOnce([{ /* expected shape */ }]);
+      const result = await service.methodName(/* params */);
+      expect(result).toBeDefined();
+      // implement full assertion after service is written
+    });
+    it('[not-found description from TDD.md]', async () => {
+      mockDb.executeQuery.mockResolvedValueOnce([]);
+      await expect(service.methodName(/* params */)).rejects.toMatchObject({ statusCode: 404 });
+    });
+    it('[error propagation description from TDD.md]', async () => {
+      mockDb.executeQuery.mockRejectedValueOnce(new Error('DB error'));
+      await expect(service.methodName(/* params */)).rejects.toThrow('DB error');
+    });
+    // ... remaining cases from TDD.md
+  });
+});
+```
+
+For route tests (`tests/unit/<feature>.routes.test.ts`), include 401, 403, 404, and 422 cases as named in `TDD.md`.
+
+Only after all test files are written, proceed to create the implementation files:
+
+**3h-impl.** Create feature-based source structure. Implement the `docs/openapi.yaml` contract exactly. For each feature from the plan:
 - `<feature>.routes.ts` — Fastify plugin; applies auth middleware
 - `<feature>.service.ts` — business logic; no framework dependencies; typed inputs/outputs; no `any`
 - `<feature>.schema.ts` — Zod schemas matching openapi.yaml exactly
@@ -404,24 +444,7 @@ docker compose run --rm flyway validate
 
 **3k.** Add health check routes (`GET /health`, `GET /health/ready`) — no auth.
 
-**3l.** Create backend test stubs. For each feature, create `tests/unit/<feature>.service.test.ts`:
-
-```typescript
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { <Feature>Service } from '../../src/features/<feature>/v1/<feature>.service';
-
-const mockDb = { executeQuery: vi.fn() };
-
-describe('<Feature>Service', () => {
-  let service: <Feature>Service;
-  beforeEach(() => { vi.clearAllMocks(); service = new <Feature>Service(mockDb as any); });
-
-  it('is instantiated correctly', () => { expect(service).toBeDefined(); });
-  // TODO: one describe block per public method
-});
-```
-
-**3m.** Create `docker-compose.yml` at the API repo root. This wires together SQL Server, db-init, Flyway (reading migrations from the sibling db repo), and the backend:
+**3l.** Create `docker-compose.yml` at the API repo root. This wires together SQL Server, db-init, Flyway (reading migrations from the sibling db repo), and the backend:
 
 ```yaml
 services:
@@ -647,24 +670,48 @@ src/
 
 Every page: MUI components, service calls only, loading + error states, TypeScript types, protected via `loader: requireAuth()` unless explicitly public.
 
-**5d.** Create frontend test stubs. For each page, create `test/unit/<PageName>.test.tsx`:
+**5d.** Write frontend test files FIRST using the cases from `TDD.md`. Before creating any page `.tsx` files, write `test/unit/<PageName>.test.tsx` for every page. The test file must contain the named `it()` blocks from the TDD.md contract — render, loading, empty state, error state, and interaction cases:
 
 ```tsx
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import <PageName> from '../../src/pages/<PageName>/<PageName>';
 
-vi.mock('../../src/services/<feature>Api', () => ({ <feature>Api: {} }));
+vi.mock('../../src/services/<feature>Api', () => ({
+  <feature>Api: {
+    list: vi.fn(),
+    create: vi.fn(),
+  }
+}));
 
 describe('<PageName>', () => {
-  it('renders without crashing', () => {
-    render(<MemoryRouter><PageName /></MemoryRouter>);
-    expect(document.body).toBeDefined();
-    // TODO: add assertions for key elements
+  describe('Render', () => {
+    it('[render description from TDD.md]', async () => {
+      // implement assertion after page component is written
+      render(<MemoryRouter><PageName /></MemoryRouter>);
+      expect(await screen.findByRole('heading')).toBeInTheDocument();
+    });
+    it('shows loading indicator while data is fetching', () => {
+      render(<MemoryRouter><PageName /></MemoryRouter>);
+      expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    });
+    it('shows empty state message when list is empty', async () => { /* from TDD.md */ });
+    it('shows error message when fetch fails', async () => { /* from TDD.md */ });
+  });
+
+  describe('Interactions', () => {
+    it('[interaction description from TDD.md]', async () => { /* from TDD.md */ });
+  });
+
+  describe('Accessibility', () => {
+    it('all form fields have associated labels', () => { /* from TDD.md */ });
+    it('action buttons have accessible names', () => { /* from TDD.md */ });
   });
 });
 ```
+
+Only after all frontend test files are written, proceed to create the page implementation files.
 
 **5e.** Create `docker-compose.yml` at the frontend repo root:
 
@@ -926,9 +973,12 @@ Verify before reporting complete:
 18. `.github/copilot-instructions.md` exists in all three repos with app-specific structure sections
 19. `.devcontainer/devcontainer.json` exists in all three repos
 20. `postman/environments/${input:appName}-local.postman_environment.json` exists in `web-api-${input:appName}/`
-21. Every backend feature has a test stub in `web-api-${input:appName}/tests/unit/`
-22. Every frontend page has a test stub in `web-${input:appName}/test/unit/`
-23. `docs/spec/requirements/` and `docs/spec/PLAN.md` exist in all three repos
+21. Every backend feature has a test file in `web-api-${input:appName}/tests/unit/` — not an empty stub; must contain named `it()` blocks from `TDD.md`
+22. Every frontend page has a test file in `web-${input:appName}/test/unit/` — must contain render, state, and interaction cases from `TDD.md`
+23. Every service test covers happy path, not-found, and DB error cases (TD04)
+24. Every route test covers 200/201/204, 401, and 422 cases at minimum (TD05)
+25. `vitest.config.ts` in both API and frontend repos has `thresholds` set to ≥ 85 lines/functions, ≥ 80 branches (TD08)
+26. `docs/spec/requirements/` and `docs/spec/PLAN.md` exist in all three repos
 
 Report any gaps found.
 

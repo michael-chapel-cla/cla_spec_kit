@@ -159,6 +159,21 @@ The spec-kit has no automated tests of its own. A broken prompt or template chan
 
 ---
 
+## Phase 13 — Test-Driven Development Enforcement
+
+The spec-kit generates test stubs today, but they are minimal — empty `it()` blocks with TODO comments. This phase makes TDD a first-class part of the workflow: test contracts are defined at design time and enforced structurally during scaffolding, so test files arrive with meaningful cases before a single line of business logic exists.
+
+| # | Item | Status |
+|---|---|---|
+| 13.1 | `specs/context/09-tdd.md` — TDD guardrail rules (TD01–TD08): test-first ordering, contract-derived test cases, service/route/frontend test requirements, coverage thresholds | ✅ |
+| 13.2 | `TDD.md` as the 17th requirement document in `/design` — defines named `it()` test cases for every feature service method, every API route (including 401/403/404/422 cases), and every frontend page (render, loading, empty, error, interaction) | ✅ |
+| 13.3 | `/plan` reads `TDD.md` — incorporates test file list into the Directory Structure and enforces test-before-implementation ordering in the Build Phases section | ✅ |
+| 13.4 | `/create` enforces test-first — writes all test files from `TDD.md` before writing any service or page implementation files; self-audit verifies named `it()` blocks, unhappy-path coverage, and `vitest.config.ts` threshold configuration | ✅ |
+| 13.5 | `/validate` adds TDD audit category — checks TD01–TD08: test file presence, named test cases vs. TDD.md contracts, unhappy-path coverage per service method, route auth/validation coverage, and coverage threshold configuration | ⬜ |
+| 13.6 | `/iterate` TDD support — when adding a new feature, `/iterate` writes the test file (with cases derived from the feature spec) before scaffolding the implementation, matching the same test-first ordering enforced by `/create` | ⬜ |
+
+---
+
 ## Phase 12 — Azure DevOps Integration
 
 Work items, features, and epics already exist in ADO — developers shouldn't have to rewrite them into an ideas file by hand. This phase adds a command that connects to ADO via an MCP server and pulls work item content directly into the spec-kit workflow.

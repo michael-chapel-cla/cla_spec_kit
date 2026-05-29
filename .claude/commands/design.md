@@ -2,8 +2,8 @@ Read `.github/prompts/design.prompt.md` and execute every step it describes for 
 
 **Input:** `ideas/$ARGUMENTS/ideas.md` (must exist before running this command). Also read any other `.md` files and image files in `ideas/$ARGUMENTS/`.
 
-**Output:** 16 separate `.md` files written to `requirements/$ARGUMENTS/`:
-- README.md, EXECUTIVE_SUMMARY.md, PRD.md, PITCH.md, HLD.md, LLD.md, SYSTEM_ARCHITECTURE.md, DATA_MODEL.md, MVP_BUILD_SPEC.md, COMPETITIVE_ANALYSIS.md, CUSTOMER_PERSONAS.md, ROADMAP.md, LANDING_PAGE.md, GO_TO_MARKET.md, PRICING_AND_POSITIONING.md, MARKET_PRIORITIZATION.md
+**Output:** 17 separate `.md` files written to `requirements/$ARGUMENTS/`:
+- README.md, EXECUTIVE_SUMMARY.md, PRD.md, PITCH.md, HLD.md, LLD.md, SYSTEM_ARCHITECTURE.md, DATA_MODEL.md, MVP_BUILD_SPEC.md, COMPETITIVE_ANALYSIS.md, CUSTOMER_PERSONAS.md, ROADMAP.md, LANDING_PAGE.md, GO_TO_MARKET.md, PRICING_AND_POSITIONING.md, MARKET_PRIORITIZATION.md, TDD.md
 
 **Format guardrails — the output must match `requirements/expense-flow/` exactly:**
 - Each document is a standalone `.md` file — no code blocks with bash or SQL inside requirement documents

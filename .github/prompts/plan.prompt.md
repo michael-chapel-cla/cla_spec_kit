@@ -84,6 +84,7 @@ Read all eight coding standards files before writing the plan. Every architectur
 - `/specs/context/06-framework.md` — framework usage rules (W01–W12)
 - `/specs/context/07-testing.md` — testing rules (T01–T15)
 - `/specs/context/08-accessibility.md` — accessibility rules (AX01–AX15)
+- `/specs/context/09-tdd.md` — TDD guardrails (TD01–TD08)
 
 ### Step 2 — Read all requirements
 
@@ -92,6 +93,7 @@ Read every file in `/requirements/${input:appName}/`. Pay special attention to:
 - `DATA_MODEL.md` — database tables and relationships
 - `HLD.md` — architectural decisions and module boundaries
 - `MVP_BUILD_SPEC.md` — what is in vs. out of scope for the first build
+- `TDD.md` — test contracts; the plan's directory structure must include all test files listed here, and the Build Phases section must write test files before their corresponding implementation files
 
 ### Step 3 — Review the tech stack templates
 
@@ -306,14 +308,33 @@ List ALL environment variables required by the API backend:
 
 ---
 
+#### TDD Contract
+
+Summarise the test files that `/create` must write before any implementation. For each feature and page, list:
+- Test file path
+- Count of `it()` cases by category (happy path, error, auth, state)
+
+This section is a checklist — `/create` treats it as a pre-condition: if a test file from this list is absent, the scaffold is incomplete regardless of implementation files present.
+
+Example:
+```
+tests/unit/expenses.service.test.ts     — 12 cases (4 happy, 4 error, 2 not-found, 2 validation)
+tests/unit/expenses.routes.test.ts      — 10 cases (3 happy, 2 401, 1 403, 2 422, 1 409, 1 404)
+test/unit/ExpenseList.test.tsx          —  8 cases (2 render, 1 loading, 1 empty, 1 error, 3 interaction)
+```
+
+---
+
 #### Build Phases
 
 **Phase 1 — MVP** (aligned with `MVP_BUILD_SPEC.md`):
-Numbered list of SPECIFIC tasks:
+Numbered list of SPECIFIC tasks. **Test files must appear before their implementation counterparts.** Example ordering:
+- "Write `tests/unit/<feature>.service.test.ts` with cases from TDD.md"
+- "Write `tests/unit/<feature>.routes.test.ts` with cases from TDD.md"
+- "Implement `<feature>.service.ts` to satisfy the service test contract"
+- "Implement `<feature>.routes.ts` to satisfy the route test contract"
 - "Create `V1.0.0__create_schema.sql` in `db-${input:appName}/migrations/`"
-- "Create `dbo.Users` table migration (V1.0.1)"
-- "Implement `GET /api/v1/Users` route + service + schema + openapi entry"
-- (etc. — every task is concrete and actionable)
+- (etc. — every task is concrete and actionable; tests always precede implementation)
 
 **Phase 2 — Expansion:**
 Features explicitly deferred from MVP.

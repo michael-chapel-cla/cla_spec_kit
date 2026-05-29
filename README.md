@@ -124,6 +124,7 @@ This reads your idea file (and any images) and generates 16 requirement document
 | `GO_TO_MARKET.md` | Channels, wedge offer, sales motion |
 | `PRICING_AND_POSITIONING.md` | Tiers, value drivers, buyer profile |
 | `MARKET_PRIORITIZATION.md` | Scored market assessment |
+| `TDD.md` | Named test cases for every feature and page — consumed by `/create` to write test files before implementation |
 
 **Review these documents before running `/plan`.** Edit anything that is wrong — `/plan` reads them as its input.
 
@@ -289,7 +290,8 @@ cla_spec_kit/
 │       ├── 05-frontend.md
 │       ├── 06-framework.md
 │       ├── 07-testing.md         ← Vitest patterns, RTL, coverage thresholds, test structure
-│       └── 08-accessibility.md   ← WCAG 2.1 AA rules auditable from source
+│       ├── 08-accessibility.md   ← WCAG 2.1 AA rules auditable from source
+│       └── 09-tdd.md             ← TDD guardrails: test-first ordering, contract-derived test cases
 ├── templates/            ← Starter templates used by /create (read-only)
 │   ├── framework-nodejs-starter-kit/
 │   ├── framework-react-starter-kit/
