@@ -8,7 +8,7 @@ This directory contains four reusable skills for running the spec-kit workflow i
 | `spec-kit-plan` | `/plan <app-name>` | Generate an implementation plan from the requirements docs |
 | `spec-kit-create` | `/create <app-name>` | Scaffold a full app (backend, db, frontend, helm) from the plan |
 | `spec-kit-validate` | `/validate <app-name>` | Audit a generated app against coding standards and produce a scored report |
-| `spec-kit-convert` | `/convert <app-name>` | Convert a Lovable vibe-coded app from `lovable/<app-name>/` directly to three scaffolded repos — no design/requirements phase |
+| `spec-kit-convert` | `/convert <app-name>` | Convert a Lovable vibe-coded app from `lovable-conversions/<app-name>/` directly to three scaffolded repos — no design/requirements phase |
 
 ## Pipelines
 
@@ -21,7 +21,7 @@ This directory contains four reusable skills for running the spec-kit workflow i
 
 ### Lovable pipeline (starting from a vibe-coded prototype)
 
-1. **Lovable export** must exist at `/lovable/<app-name>/` (before `spec-kit-convert`)
+1. **Lovable export** must exist at `/lovable-conversions/<app-name>/` (before `spec-kit-convert`)
 2. Run `spec-kit-convert` — this generates the plan and scaffolds all three repos in one pass
 3. Run `spec-kit-validate` to audit the output
 

@@ -1,6 +1,6 @@
 ---
 mode: agent
-description: Convert a Lovable vibe-coded app into a full-stack scaffold — reads /lovable/<app-name>/, generates a plan directly from the source, and scaffolds three repos in /repos/. Skips the design/requirements phase.
+description: Convert a Lovable vibe-coded app into a full-stack scaffold — reads /lovable-conversions/<app-name>/, generates a plan directly from the source, and scaffolds three repos in /repos/. Skips the design/requirements phase.
 tools:
   - codebase
   - editFiles
@@ -10,7 +10,7 @@ tools:
 
 Convert the Lovable app **${input:appName}** into a full-stack scaffold using the fixed tech stack.
 
-Read source from `/lovable/${input:appName}/`, generate a plan at `/plans/${input:appName}/PLAN.md` directly from the source (no requirements documents), then scaffold three repos in `/repos/`.
+Read source from `/lovable-conversions/${input:appName}/`, generate a plan at `/plans/${input:appName}/PLAN.md` directly from the source (no requirements documents), then scaffold three repos in `/repos/`.
 
 Pipeline: **source analysis → plan → scaffold**
 
@@ -78,7 +78,7 @@ Read all nine coding standards files before writing the plan. Every API endpoint
 
 #### Step 2 — Read all source files
 
-Read every file in `/lovable/${input:appName}/`. Process in this order:
+Read every file in `/lovable-conversions/${input:appName}/`. Process in this order:
 
 1. **`README.md`** (if present) — app purpose and context
 2. **`package.json`** — `description`, `dependencies`, and `devDependencies`
@@ -152,7 +152,7 @@ Create `/plans/${input:appName}/PLAN.md` with ALL of the following sections. Eve
 
 ##### Overview
 - App name and one-sentence description
-- Source: `lovable/${input:appName}/` (converted from Lovable)
+- Source: `lovable-conversions/${input:appName}/` (converted from Lovable)
 - Three repo names:
   - API: `web-api-${input:appName}`
   - Frontend: `web-${input:appName}`

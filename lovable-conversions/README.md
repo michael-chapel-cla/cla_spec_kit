@@ -9,7 +9,7 @@ Each app goes in its own subdirectory. Drop the Lovable export in, then run one 
 ## Quick start
 
 ```
-lovable/
+lovable-conversions/
 └── my-app/          ← paste your Lovable export here
     ├── src/
     ├── package.json
@@ -32,7 +32,7 @@ The command runs three phases automatically, in sequence. There is no requiremen
 
 ```
 Lovable source  →  Plan                       →  Three scaffolded repos
-/lovable/<app>     /plans/<app>/PLAN.md          /repos/web-api-<app>/
+/lovable-conversions/<app>     /plans/<app>/PLAN.md          /repos/web-api-<app>/
                                                  /repos/web-<app>/
                                                  /repos/db-<app>/
 ```
@@ -156,7 +156,7 @@ Anything deferred (not dropped) appears in `ROADMAP.md` Phase 2 or 3 with an exp
 /create <app-name>    → repos/ (3 repos)
 
 # Lovable pipeline (starting from a vibe-coded prototype)
-# 1. Export Lovable project into lovable/<app-name>/
+# 1. Export Lovable project into lovable-conversions/<app-name>/
 # 2. Run once — skips design/requirements entirely:
 /convert <app-name>   → plans/<app-name>/PLAN.md + repos/ (3 repos)
 
@@ -169,7 +169,7 @@ Anything deferred (not dropped) appears in `ROADMAP.md` Phase 2 or 3 with an exp
 ## Directory layout
 
 ```
-lovable/
+lovable-conversions/
 ├── README.md              ← you are here
 └── <app-name>/            ← one directory per Lovable app
     ├── src/
