@@ -1,6 +1,6 @@
 # Lovable → Full-Stack Conversion
 
-This directory holds Lovable vibe-coded apps that you want to convert into production-ready, enterprise full-stack scaffolds.
+This directory holds Lovable vibe-coded apps that you want to convert into production-ready, enterprise full-stack applications — fully implemented, tested, and deployment-ready.
 
 Each app goes in its own subdirectory. Drop the Lovable export in, then run one command.
 
